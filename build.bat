@@ -1,8 +1,5 @@
 @echo off
 
-if not exist bin mkdir bin
-if not exist tmp mkdir tmp
-
 set dismountImg=1
 set cleanupTemp=1
 
@@ -15,6 +12,11 @@ if not "%1"=="" (
   shift
   goto :paramHandler
 )
+
+:: Setup
+if not exist bin mkdir bin
+if not exist tmp mkdir tmp
+imdisk -D -m Z:
 
 :: Create and mount a disk image
 fsutil file createnew bin/Staxus.iso 67108864
