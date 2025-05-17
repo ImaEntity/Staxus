@@ -115,7 +115,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     SysTbl -> ConOut -> ClearScreen(SysTbl -> ConOut);
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L"Loading kernel.");
 
-    EFI_FILE *file = LoadFile(NULL, L"lnrknrl.bex");
+    EFI_FILE *file = LoadFile(NULL, L"stxkrnl.bex");
     if(file == NULL) return ExitWithError(ERROR_DEVICE_OPEN_FAIL);
 
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".");
