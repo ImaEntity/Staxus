@@ -1,3 +1,5 @@
 # Notice!
-To build by using the build.bat file you need to have imdisk installed as
-well as a custom linker I wrote called bexlink, you can find it on my profile
+To build using the build.bat file you need:
+- imdisk
+- bexlink (can be found on my profile)
+- x86_64-w64-mingw32-gcc
