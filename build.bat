@@ -14,17 +14,17 @@ if not "%1"=="" (
 )
 
 :: Setup
-if not exist bin mkdir bin
-if not exist tmp mkdir tmp
-imdisk -D -m Z:
+if not exist bin mkdir bin >nul
+if not exist tmp mkdir tmp >nul
+imdisk -D -m Z: >nul 2>&1
 
 :: Create and mount a disk image
-fsutil file createnew bin/Staxus.iso 67108864
-imdisk -a -f bin/Staxus.iso -m Z: -o rw -o hd
-format Z: /fs:fat32 /q /y
+fsutil file createnew bin/Staxus.iso 67108864 >nul
+imdisk -a -f bin/Staxus.iso -m Z: -o rw -o hd >nul
+format Z: /fs:fat32 /q /y >nul
 
 :: Set up file system on disk
-mkdir Z:\EFI\BOOT
+mkdir Z:\EFI\BOOT >nul
 
 :: Compile and link the bootloader, then shove the efi file into the disk image
 x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/bootloader.o src/bootloader.c
@@ -36,5 +36,5 @@ x86_64-w64-mingw32-gcc -m64 -Os -s -nostdlib -Wl,-dll -shared -Wl,--subsystem,10
 @REM bexlink tmp/kernel.o -e kernel_entry -o Z:/stxkrnl.bex
 
 :: Cleanup
-if %cleanupTemp%==1 rmdir /s /q tmp
-if %dismountImg%==1 imdisk -D -m Z:
+if %cleanupTemp%==1 rmdir /s /q tmp >nul
+if %dismountImg%==1 imdisk -D -m Z: >nul
