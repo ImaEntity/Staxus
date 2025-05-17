@@ -28,7 +28,7 @@ mkdir Z:\EFI\BOOT
 
 :: Compile and link the bootloader, then shove the efi file into the disk image
 x86_64-w64-mingw32-gcc -m64 -ffreestanding -c -o tmp/bootloader.o src/bootloader.c
-x86_64-w64-mingw32-gcc -m64 -ffreestanding -c -Isrc/inc -Isrc/inc/x86_64 -Isrc/inc/protocol -o tmp/efi_data.o src/lib/data.c
+x86_64-w64-mingw32-gcc -m64 -ffreestanding -c -Isrc/inc -Isrc/inc/x86_64 -Isrc/inc/protocol -o tmp/efi_data.o src/lib/efi_data.c
 x86_64-w64-mingw32-gcc -m64 -nostdlib -Wl,-dll -shared -Wl,--subsystem,10 -e efi_main -o Z:/EFI/BOOT/BOOTX64.EFI tmp/bootloader.o tmp/efi_data.o
 
 :: Compile and link the kernel, then shove it into the disk image
