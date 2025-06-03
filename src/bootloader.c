@@ -211,14 +211,13 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     EFI_FILE *fontFile = LoadFile(fontsFolder, L"L8x16-ext.psf");
     if(fontFile == NULL) return ExitWithError(ERROR_DEVICE_OPEN_FAIL);
 
-    PSFFont *font = LoadFont(SysTbl, fontFile);
+    u64 fontFileSize = GetFileSize(fontFile);
+    PSFFont *font = LoadFont(SysTbl, fontFile, fontFileSize);
     if(font == NULL) return ExitWithError(ERROR_PROTOCOL_MISSING);
 
     resourcesFolder -> Close(resourcesFolder);
     fontsFolder -> Close(fontsFolder);
     fontFile -> Close(fontFile);
-
-    
 
     kernel_entry(fb, font);
 

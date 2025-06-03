@@ -33,9 +33,9 @@ typedef struct {
 typedef struct {
     PSFHeader     *header;
     byte          *glyphBuffer;
-    // u16           *unicodeTable;
+    u16           *unicodeTable;
 } PSFFont;
 
-PSFFont *LoadFont(EFI_SYSTEM_TABLE *SysTbl, EFI_FILE *file);
+PSFFont *LoadFont(EFI_SYSTEM_TABLE *SysTbl, EFI_FILE *file, u64 fileSize);
 
 #endif
