@@ -1,6 +1,8 @@
 #ifndef HH_BEX
 #define HH_BEX
 
+#include "../types.h"
+
 #define BEX_SIGNATURE "BE\x04\xD5"
 #define BEX_VERSION 0x0102 // Version 1.2
 
@@ -35,8 +37,6 @@
     ((x << 40) & 0x00FF000000000000) | \
     ((x << 56) & 0xFF00000000000000) \
 )
-
-#include "types.h"
 
 typedef struct {
     char signature[4];

@@ -6,8 +6,8 @@ set cleanupTemp=1
 :: Handle parameters and set correct flags
 :paramHandler
 if not "%1"=="" (
-  if "%1"=="--nodismount" set dismountImg=0
-  if "%1"=="--noclean" set cleanupTemp=0
+  if "%1"=="--no-dismount" set dismountImg=0
+  if "%1"=="--no-clean" set cleanupTemp=0
 
   shift
   goto :paramHandler
@@ -26,14 +26,25 @@ format Z: /fs:fat32 /q /y >nul
 :: Set up file system on disk
 mkdir Z:\EFI\BOOT >nul
 
+:: Compile all utility files
+x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/psf.o src/file-formats/psf.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/gop.o src/graphics/gop.c
+
 :: Compile and link the bootloader, then shove the efi file into the disk image
 x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/bootloader.o src/bootloader.c
-x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -Isrc/inc -Isrc/inc/x86_64 -Isrc/inc/protocol -o tmp/efi_data.o src/lib/efi_data.c
-x86_64-w64-mingw32-gcc -m64 -Os -s -nostdlib -Wl,-dll -shared -Wl,--subsystem,10 -e efi_main -o Z:/EFI/BOOT/BOOTX64.EFI tmp/bootloader.o tmp/efi_data.o
+x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -Isrc/gnu-efi/inc -Isrc/gnu-efi/inc/x86_64 -Isrc/gnu-efi/inc/protocol -o tmp/efi_data.o src/gnu-efi/efi_data.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -nodefaultlibs -nostartfiles -nostdlib -Wl,-dll -shared -Wl,--subsystem,10 -e efi_main -o Z:/EFI/BOOT/BOOTX64.EFI tmp/psf.o tmp/bootloader.o tmp/efi_data.o
 
 :: Compile and link the kernel, then shove it into the disk image
+x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/krnltmp.o src/kernel.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -nostdlib -nodefaultlibs -nostartfiles -o tmp/stxkrnl.o tmp/krnltmp.o tmp/gop.o -Wl,-N -Wl,-e,kernel_entry
+objcopy -O binary tmp/stxkrnl.o Z:/stxkrnl.bin
+
 @REM x86_64-w64-mingw32-gcc -m64 -ffreestanding -c -o tmp/kernel.o src/kernel.c
 @REM bexlink tmp/kernel.o -e kernel_entry -o Z:/stxkrnl.bex
+
+:: Make sure all resources are present
+xcopy resources Z:\resources /E /I >nul
 
 :: Cleanup
 if %cleanupTemp%==1 rmdir /s /q tmp >nul

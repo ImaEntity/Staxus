@@ -32,8 +32,9 @@ typedef uint32_t dword;
 typedef uint64_t qword;
 
 typedef uint8_t boolean;
+typedef uint16_t wchar;
 
 typedef char *String;
-typedef uint16_t *WString;
+typedef wchar *wString;
 
 #endif
