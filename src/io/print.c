@@ -160,6 +160,11 @@ void printf(wString fmt, ...) {
     vsprintf(buf, fmt, args);
     va_end(args);
 
+    if((charY + 1) * defaultFont -> header -> charSize >= defaultFB -> Height) {
+        ShiftScreenUp(defaultFB, defaultFont -> header -> charSize);
+        charY--;
+    }
+
     for(u64 i = 0; buf[i] != '\0'; i++) {
         if(buf[i] == '\n') {
             charY++;

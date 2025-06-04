@@ -27,18 +27,18 @@ format Z: /fs:fat32 /q /y >nul
 mkdir Z:\EFI\BOOT >nul
 
 :: Compile all utility files
-x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/psf.o src/file-formats/psf.c
-x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/gop.o src/graphics/gop.c
-x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/format.o src/io/format.c
-x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/print.o src/io/print.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -Wall -Werror -ffreestanding -c -o tmp/psf.o src/file-formats/psf.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -Wall -Werror -ffreestanding -c -o tmp/gop.o src/graphics/gop.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -Wall -Werror -ffreestanding -c -o tmp/format.o src/io/format.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -Wall -Werror -ffreestanding -c -o tmp/print.o src/io/print.c
 
 :: Compile and link the bootloader, then shove the efi file into the disk image
-x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/bootloader.o src/bootloader.c
-x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -Isrc/gnu-efi/inc -Isrc/gnu-efi/inc/x86_64 -Isrc/gnu-efi/inc/protocol -o tmp/efi_data.o src/gnu-efi/efi_data.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -Wall -Werror -ffreestanding -c -o tmp/bootloader.o src/bootloader.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -Wall -Werror -ffreestanding -c -Isrc/gnu-efi/inc -Isrc/gnu-efi/inc/x86_64 -Isrc/gnu-efi/inc/protocol -o tmp/efi_data.o src/gnu-efi/efi_data.c
 x86_64-w64-mingw32-gcc -m64 -Os -s -nodefaultlibs -nostartfiles -nostdlib -Wl,-dll -shared -Wl,--subsystem,10 -e efi_main -o Z:/EFI/BOOT/BOOTX64.EFI tmp/psf.o tmp/bootloader.o tmp/efi_data.o
 
 :: Compile and link the kernel, then shove it into the disk image
-x86_64-w64-mingw32-gcc -m64 -Os -s -ffreestanding -c -o tmp/krnltmp.o src/kernel.c
+x86_64-w64-mingw32-gcc -m64 -Os -s -Wall -Werror -ffreestanding -c -o tmp/krnltmp.o src/kernel.c
 x86_64-w64-mingw32-gcc -m64 -Os -s -nostdlib -nodefaultlibs -nostartfiles -o tmp/stxkrnl.o tmp/krnltmp.o tmp/format.o tmp/print.o tmp/gop.o -Wl,-N -Wl,-e,kernel_entry
 objcopy -O binary tmp/stxkrnl.o Z:/stxkrnl.bin
 

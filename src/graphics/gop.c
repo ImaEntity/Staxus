@@ -12,6 +12,50 @@ void ClearScreen(FrameBuffer *fb, u32 color) {
     }
 }
 
+void ShiftScreenUp(FrameBuffer *fb, u32 n) {
+    if(n > fb -> Height) return;
+
+    for(u32 y = 0; y < fb -> Height; y++) {
+        for(u32 x = 0; x < fb -> Width; x++) {
+            u32 pixel = y + n >= fb -> Height ? 0 : GetPixel(fb, x, y + n);
+            SetPixel(fb, x, y, pixel);
+        }
+    }
+}
+
+void ShiftScreenDown(FrameBuffer *fb, u32 n) {
+    if(n > fb -> Height) return;
+
+    for(u32 y = fb -> Height - 1; y >= 0; y--) {
+        for(u32 x = 0; x < fb -> Width; x++) {
+            u32 pixel = y - n < 0 ? 0 : GetPixel(fb, x, y - n);
+            SetPixel(fb, x, y, pixel);
+        }
+    }
+}
+
+void ShiftScreenLeft(FrameBuffer *fb, u32 n) {
+    if(n > fb -> Width) return;
+
+    for(u32 y = 0; y < fb -> Height; y++) {
+        for(u32 x = 0; x < fb -> Width; x++) {
+            u32 pixel = x + n >= fb -> Width ? 0 : GetPixel(fb, x + n, y);
+            SetPixel(fb, x, y, pixel);
+        }
+    }
+}
+
+void ShiftScreenRight(FrameBuffer *fb, u32 n) {
+    if(n > fb -> Width) return;
+
+    for(u32 y = 0; y < fb -> Height; y++) {
+        for(u32 x = fb -> Width - 1; x >= 0; x--) {
+            u32 pixel = x - n < 0 ? 0 : GetPixel(fb, x - n, y);
+            SetPixel(fb, x, y, pixel);
+        }
+    }
+}
+
 void SetPixel(FrameBuffer *fb, u32 x, u32 y, u32 color) {
     if(x >= fb -> Width || y >= fb -> Height) return;
 
@@ -50,7 +94,7 @@ void DrawChar(FrameBuffer *fb, PSFFont *font, wchar chr, u32 x, u32 y, u32 color
 
     for(u32 i = 0; i < font -> header -> charSize; i++) { // this assumes 1 row = 1 byte
         for(u32 j = 0; j < 8; j++) {
-            if(glyph[i] >> (7 - j) & 1 != 0)
+            if((glyph[i] >> (7 - j) & 1) != 0)
                 SetPixel(fb, x + j, y + i, color);
         }
     }

@@ -49,7 +49,7 @@ PSFFont *LoadFont(EFI_SYSTEM_TABLE *SysTbl, EFI_FILE *file, u64 fileSize) {
     //     return NULL;
     // }
 
-    u64 glyphCount = font -> header -> fontMode & PSF_MODE512 != 0 ? 512 : 256;
+    u64 glyphCount = (font -> header -> fontMode & PSF_MODE512) != 0 ? 512 : 256;
     u64 glyphBufferSize = font -> header -> charSize * glyphCount;
 
     SysTbl -> BootServices -> AllocatePool(EfiLoaderData, glyphBufferSize, (void **) &font -> glyphBuffer);

@@ -11,6 +11,7 @@ u64 UIntToString(u64 num, wString str, byte radix) {
         i++;
     }
 
+    if(i == 0) str[i++] = '0';
     str[i] = '\0';
 
     for(byte j = 0; j < i / 2; j++) {
@@ -34,25 +35,83 @@ u64 IntToString(i64 num, wString str, byte radix) {
     return UIntToString(num, str, radix) + inc;
 }
 
+// abuse IEEE-754 to get a truncation that actually works
+// at values above the signed 64-bit integer limit 
+f64 Truncate(f64 num) {
+    union {
+        f64 dbl;
+        u64 lng;
+    } BitAccessor = {.dbl = num};
+
+    u64 sign     =  BitAccessor.lng & 0x8000000000000000;
+    u64 exponent = (BitAccessor.lng & 0x7FF0000000000000) >> 52;
+    u64 mantissa =  BitAccessor.lng & 0x000FFFFFFFFFFFFF;
+    i16 correctedExp = (i16) exponent - 1023;
+
+    // nan/inf
+    if(exponent == 0x7FF)
+        return num;
+
+    // already truncated
+    if(correctedExp >= 52)
+        return num;
+
+    // fkn headache
+    if(correctedExp < 0) {
+        BitAccessor.lng = sign;
+        return BitAccessor.dbl;
+    }
+
+    u64 mask = (1ull << (52 - correctedExp)) - 1ull;
+    mantissa &= ~mask;
+
+    BitAccessor.lng =
+        sign           |
+        exponent << 52 |
+        mantissa;
+
+    return BitAccessor.dbl;
+}
+
 u64 FloatToString(f64 num, wString str, byte radix, byte precision) {
-    i64 integer = num;
+    f64 integer = Truncate(num);
     f64 fractional = num - integer;
 
-    u64 len = IntToString(integer, str, radix);
+    u64 i = 0;
+    if(integer < 0) {
+        *(str++) = '-';
+        integer = -integer;
+        fractional = -fractional;
+    }
+
+    while(integer >= 1) {
+        f64 truncDiv = Truncate(integer / radix);
+        f64 rem = integer - truncDiv * radix;
+        byte digit = (byte) rem;
+
+        str[i++] = digit < 10 ? digit + '0' : digit - 10 + 'A';
+        integer = truncDiv;
+    }
+
+    if(i == 0) str[i++] = '0';
+    
+    for(byte j = 0; j < i / 2; j++) {
+        byte temp = str[j];
+        str[j] = str[i - j - 1];
+        str[i - j - 1] = temp;
+    }
 
     if(precision > 0) {
-        str[len] = '.';
-        len++;
+        str[i++] = '.';
 
-        for(byte i = 0; i < precision; i++) {
+        for(byte j = 0; j < precision; j++) {
             fractional *= radix;
             byte digit = fractional;
-            str[len] = digit < 10 ? digit + '0' : digit - 10 + 'A';
+            str[i++] = digit < 10 ? digit + '0' : digit - 10 + 'A';
             fractional -= digit;
-            len++;
         }
     }
 
-    str[len] = '\0';
-    return len;
+    str[i] = '\0';
+    return i;
 }
