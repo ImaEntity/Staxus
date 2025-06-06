@@ -18,6 +18,7 @@ u64 HexString(u64 hex, wString buf, boolean useCaps) {
         i++;
     }
 
+    if(i == 0) buf[i++] = '0';
     buf[i] = '\0';
 
     for(byte j = 0; j < i / 2; j++) {
@@ -43,7 +44,7 @@ void vsprintf(wString buf, wString fmt, va_list args) {
             case 's': {
                 u64 i = 0;
                 wString str = va_arg(args, wString);
-                while(*str != '\0') buf[idx++] = str[i++];
+                while(str[i] != '\0') buf[idx++] = str[i++];
                 break;
             }
 
@@ -61,8 +62,14 @@ void vsprintf(wString buf, wString fmt, va_list args) {
                     fmt++;
 
                     if(*fmt == 'l') idx += UIntToString(va_arg(args, u64), buf + idx, 10);
-                    else idx += UIntToString(va_arg(args, u32), buf + idx, 10);
-                } else idx += UIntToString(va_arg(args, u32), buf + idx, 10);
+                    else {
+                        idx += UIntToString(va_arg(args, u32), buf + idx, 10);
+                        fmt--;
+                    }
+                } else {
+                    idx += UIntToString(va_arg(args, u32), buf + idx, 10);
+                    fmt--;
+                }
 
                 break;
             }
@@ -79,12 +86,23 @@ void vsprintf(wString buf, wString fmt, va_list args) {
 
                     if(*(fmt + 1) == 'X')      idx += HexString(va_arg(args, u64), buf + idx, true);
                     else if(*(fmt + 1) == 'x') idx += HexString(va_arg(args, u64), buf + idx, false);
+                    else if(*(fmt + 1) == 'u') idx += UIntToString(va_arg(args, u64), buf + idx, 10);
 
                     if(pIdx != idx) fmt++;
-                    else
-                        idx += IntToString(va_arg(args, i64), buf + idx, 10);
+                    else idx += IntToString(va_arg(args, i64), buf + idx, 10);
                 } else if(*fmt == 'f') idx += FloatToString(va_arg(args, double), buf + idx, 10, 15);
                 else idx += IntToString(va_arg(args, i32), buf + idx, 10);
+
+                break;
+            }
+
+            case '.': {
+                fmt++;
+                byte precision = *fmt - '0';
+
+                fmt++;
+                if(*fmt == 'f') idx += FloatToString(va_arg(args, double), buf + idx, 10, precision);
+                else fmt--;
 
                 break;
             }

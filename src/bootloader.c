@@ -4,6 +4,7 @@
 #include "types.h"
 #include "graphics/gop.h"
 #include "file-formats/psf.h"
+#include "memory/map.h"
 // #include "file-formats/bex.h"
 
 #define ERROR_SUCCESS          0x0000
@@ -195,12 +196,16 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         return ExitWithError(ERROR_DEVICE_READ_FAIL);
 
     file -> Close(file);
-    SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".\r\nKernel loaded!\r\n");
 
-    void (*kernel_entry)(FrameBuffer *, PSFFont *) = (void *) fileData;
+    SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".\r\nKernel loaded!\r\n");
+    SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L"Wait hold on, last minute fetch quest.");
+
+    void (*kernel_entry)(FrameBuffer *, PSFFont *, MemoryMap *) = (void *) fileData;
 
     FrameBuffer *fb = InitializeGOP();
     if(fb == NULL) return ExitWithError(ERROR_PROTOCOL_MISSING);
+
+    SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".");
 
     EFI_FILE *resourcesFolder = LoadDirectory(NULL, L"resources");
     if(resourcesFolder == NULL) return ExitWithError(ERROR_DEVICE_OPEN_FAIL);
@@ -215,15 +220,50 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     PSFFont *font = LoadFont(SysTbl, fontFile, fontFileSize);
     if(font == NULL) return ExitWithError(ERROR_PROTOCOL_MISSING);
 
+    SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".");
+
     resourcesFolder -> Close(resourcesFolder);
     fontsFolder -> Close(fontsFolder);
     fontFile -> Close(fontFile);
 
-    kernel_entry(fb, font);
+    MemoryMap *memory = NULL;
+    if(SysTbl -> BootServices -> AllocatePool(EfiLoaderData, sizeof(MemoryMap), (void **) &memory) != EFI_SUCCESS)
+        return ExitWithError(ERROR_MEM_ALLOC_FAIL);
 
-    SysTbl -> BootServices -> FreePool(fileData);
-    SysTbl -> BootServices -> FreePool(fb);
-    return ExitWithError(ERROR_SUCCESS);
+    memory -> map = NULL;
+    memory -> mapSize = 0;
+    memory -> descriptorSize = 0;
+
+    u64 mapKey;
+    u32 descVer;
+
+    SysTbl -> BootServices -> GetMemoryMap(
+        &memory -> mapSize,
+        (EFI_MEMORY_DESCRIPTOR *) memory -> map,
+        &mapKey,
+        &memory -> descriptorSize,
+        &descVer
+    );
+
+    if(SysTbl -> BootServices -> AllocatePool(EfiLoaderData, memory -> mapSize, (void **) &memory -> map) != EFI_SUCCESS)
+        return ExitWithError(ERROR_MEM_ALLOC_FAIL);
+
+    if(SysTbl -> BootServices -> GetMemoryMap(
+        &memory -> mapSize,
+        (EFI_MEMORY_DESCRIPTOR *) memory -> map,
+        &mapKey,
+        &memory -> descriptorSize,
+        &descVer
+    ) != EFI_SUCCESS) return ExitWithError(ERROR_PROTOCOL_MISSING);
+
+    SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".\r\nFinished last minute fetch quest!\r\n");
+    SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L"Jumping to kernel...\r\n");
+
+    SysTbl -> BootServices -> ExitBootServices(ImageHandle, mapKey);
+    kernel_entry(fb, font, memory);
+    
+    SysTbl -> RuntimeServices -> ResetSystem(EfiResetCold, EFI_ABORTED, 0, NULL);
+    return EFI_SUCCESS; // not really a success if the kernel returned
 
     /*==============================================================================
      * All the code below this comment is for loading the kernel from a .bex file.
