@@ -192,7 +192,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".");
 
-    if(file -> Read(file, &fileSize, (void *) fileData))
+    if(file -> Read(file, &fileSize, (void *) fileData) != EFI_SUCCESS)
         return ExitWithError(ERROR_DEVICE_READ_FAIL);
 
     file -> Close(file);

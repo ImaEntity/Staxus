@@ -14,6 +14,7 @@ struct _BlockHeader {
 
 u64   InitializeMemory(MemoryMap *memory);
 void *BlkAlloc(u64 size);
+void *BlkRealloc(void *ptr, u64 size);
 void  BlkFree(void *ptr);
 
 #endif
