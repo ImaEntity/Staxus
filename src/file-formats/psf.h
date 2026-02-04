@@ -1,8 +1,8 @@
 #ifndef HH_PSF
 #define HH_PSF
 
-#include "../types.h"
-#include "../gnu-efi/inc/efi.h"
+#include <types.h>
+#include <gnu-efi/inc/efi.h>
 
 #define PSF_MODE512    0b00000001
 #define PSF_MODEHASTAB 0b00000010

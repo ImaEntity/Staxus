@@ -1,20 +1,29 @@
-#ifndef HH_MEMALLOC
-#define HH_MEMALLOC
+#ifndef HH_MEM_ALLOC
+#define HH_MEM_ALLOC
 
 #include "map.h"
-#include "../types.h"
+#include <types.h>
 
-typedef struct _BlockHeader BlockHeader;
-struct _BlockHeader {
-    u64 size;
-    BlockHeader *next;
-    boolean inUse;
-    u8 flags;
-};
+typedef struct {
+    void  (*init)   (MemoryMap *memory);
+    void *(*malloc) (u64 size);
+    void *(*aalloc) (u64 size, u64 align);
+    void *(*realloc)(void *ptr, u64 size);
+    void  (*free)   (void *ptr);
+    void  (*cleanup)();
 
-u64   InitializeMemory(MemoryMap *memory);
-void *BlkAlloc(u64 size);
-void *BlkRealloc(void *ptr, u64 size);
-void  BlkFree(void *ptr);
+    u64 (*get_usable)();
+    u64 (*get_available)();
+} MemoryManager;
+
+boolean LoadMemoryManager(MemoryManager manager, MemoryMap *map);
+
+void *malloc(u64 size);
+void *aalloc(u64 size, u64 align); // Aligned alloc
+void *realloc(void *ptr, u64 size);
+void  free(void *ptr);
+
+u64 GetUsableMemory();
+u64 GetAvailableMemory();
 
 #endif

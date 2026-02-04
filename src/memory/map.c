@@ -1,25 +1,25 @@
-#include "../types.h"
 #include "map.h"
+#include <types.h>
 
 // for some reason indexing an array of strings
 // will ALWAYS return null, so i have to do this shit
 wString MemoryTypeString(u32 type) {
     switch(type) {
-        case  0: return L"EfiReservedMemoryType";
-        case  1: return L"EfiLoaderCode";
-        case  2: return L"EfiLoaderData";
-        case  3: return L"EfiBootServicesCode";
-        case  4: return L"EfiBootServicesData";
-        case  5: return L"EfiRuntimeServicesCode";
-        case  6: return L"EfiRuntimeServicesData";
-        case  7: return L"EfiConventionalMemory";
-        case  8: return L"EfiUnusableMemory";
-        case  9: return L"EfiACPIReclaimMemory";
-        case 10: return L"EfiACPIMemoryNVS";
-        case 11: return L"EfiMemoryMappedIO";
-        case 12: return L"EfiMemoryMappedIOPortSpace";
-        case 13: return L"EfiPalCode";
-        case 14: return L"EfiPersistentMemory";
+        case EFI_ReservedMemoryType      : return L"EfiReservedMemoryType";
+        case EFI_LoaderCode              : return L"EfiLoaderCode";
+        case EFI_LoaderData              : return L"EfiLoaderData";
+        case EFI_BootServicesCode        : return L"EfiBootServicesCode";
+        case EFI_BootServicesData        : return L"EfiBootServicesData";
+        case EFI_RuntimeServicesCode     : return L"EfiRuntimeServicesCode";
+        case EFI_RuntimeServicesData     : return L"EfiRuntimeServicesData";
+        case EFI_ConventionalMemory      : return L"EfiConventionalMemory";
+        case EFI_UnusableMemory          : return L"EfiUnusableMemory";
+        case EFI_ACPIReclaimMemory       : return L"EfiACPIReclaimMemory";
+        case EFI_ACPIMemoryNVS           : return L"EfiACPIMemoryNVS";
+        case EFI_MemoryMappedIO          : return L"EfiMemoryMappedIO";
+        case EFI_MemoryMappedIOPortSpace : return L"EfiMemoryMappedIOPortSpace";
+        case EFI_PalCode                 : return L"EfiPalCode";
+        case EFI_PersistentMemory        : return L"EfiPersistentMemory";
     }
 
     return L"Unknown";

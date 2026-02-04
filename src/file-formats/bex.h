@@ -1,7 +1,7 @@
 #ifndef HH_BEX
 #define HH_BEX
 
-#include "../types.h"
+#include <types.h>
 
 #define BEX_SIGNATURE "BE\x04\xD5"
 #define BEX_VERSION 0x0102 // Version 1.2

@@ -1,11 +1,11 @@
-#include "gnu-efi/inc/efi.h"
-#include "gnu-efi/inc/efilib.h"
+#include <gnu-efi/inc/efi.h>
+#include <gnu-efi/inc/efilib.h>
 
-#include "types.h"
-#include "graphics/gop.h"
-#include "file-formats/psf.h"
-#include "memory/map.h"
-// #include "file-formats/bex.h"
+#include <types.h>
+#include <video/gop.h>
+#include <file-formats/psf.h>
+#include <memory/map.h>
+// #include <file-formats/bex.h>
 
 #define ERROR_SUCCESS          0x0000
 #define ERROR_MEM_ALLOC_FAIL   0x0001
@@ -255,6 +255,22 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         &memory -> descriptorSize,
         &descVer
     ) != EFI_SUCCESS) return ExitWithError(ERROR_PROTOCOL_MISSING);
+
+    // Identity map everything while we're at it
+    EFI_MEMORY_DESCRIPTOR *desc = (EFI_MEMORY_DESCRIPTOR *) memory -> map;
+    for(UINTN i = 0; i < memory -> mapSize / memory -> descriptorSize; i++) {
+        EFI_PHYSICAL_ADDRESS phys = desc -> PhysicalStart;
+        UINTN pages = desc -> NumberOfPages;
+
+        SysTbl -> BootServices -> AllocatePages(
+            AllocateAddress,
+            EfiRuntimeServicesData,
+            pages,
+            &phys
+        );
+
+        desc = (EFI_MEMORY_DESCRIPTOR *) ((byte *) desc + memory -> descriptorSize);
+    }
 
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".\r\nFinished last minute fetch quest!\r\n");
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L"Jumping to kernel...\r\n");
