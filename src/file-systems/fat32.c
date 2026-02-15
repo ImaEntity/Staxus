@@ -954,7 +954,6 @@ u64 writeFAT32File(FILE *file, void *buffer, u64 offset, u64 length) {
 
     u32 existingClusters = entry -> size != 0 ? (entry -> size + mount -> bytesPerCluster - 1) / mount -> bytesPerCluster : 1;
     u32 neededClusters = (length + offset + mount -> bytesPerCluster - 1) / mount -> bytesPerCluster;
-    // printf("%d %d - ", existingClusters, neededClusters);
 
     if(offset + length > entry -> size) {
         if(!extendFAT32File(mount, &entry -> cluster, existingClusters, neededClusters))
@@ -1047,12 +1046,8 @@ boolean moveFAT32Entry(FSMount *mount, const String oldPath, const String newPat
     FAT32Entry *entry = findFAT32Entry(fatMount, oldPath, fatMount -> rootCluster);
     if(entry == NULL) return false;
 
-    printf("`%s`, `%s`\n", oldPath, newPath);
-
     FAT32Entry *desti = findFAT32Entry(fatMount, newPath, fatMount -> rootCluster);
     if(desti != NULL) {
-        printf("desti already exists\n");
-
         destroyFAT32Entry(desti);
         destroyFAT32Entry(entry);
         return false;
