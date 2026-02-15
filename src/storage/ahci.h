@@ -2,6 +2,7 @@
 #define HH_STORAGE_AHCI
 
 #include <types.h>
+#include <storage/block.h>
 
 typedef volatile struct {
     dword clb;       // 0x00 command list base
@@ -42,25 +43,13 @@ typedef volatile struct {
     HBA_PORT ports [32];
 } HBA_MEM;
 
-#define AHCI_DRIVE_PRESENT 0b00000001
-#define AHCI_DRIVE_SATAPI  0b00000010
-#define AHCI_DRIVE_LBA48   0b00000100
-
-typedef struct {
-    HBA_PORT *port;
-    u64 sectorCount;
-    u16 sectorSize;
-    byte flags;
-} AHCIDrive;
-
 typedef struct {
     dword *baseAddrReg;
     dword portsImplemented;
     byte portCount;
-    AHCIDrive drives[64];
 } AHCIController;
 
 AHCIController FindAHCIController();
-void InitializeAHCIController(AHCIController controller);
+void InitializeAHCIController(AHCIController *controller);
 
 #endif

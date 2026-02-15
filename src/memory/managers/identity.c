@@ -19,7 +19,7 @@ struct _BlockHeader {
 
 static BlockHeader *firstBlock = NULL;
 static u64 totalUsable = 0;
-void idalloc_init(MemoryMap *memory) {
+void idalloc_init(MemoryMap *memory, void *kernel_entry) {
     u64 blockCount = 0;
     BlockHeader *lastBlock = NULL;
 
@@ -32,11 +32,13 @@ void idalloc_init(MemoryMap *memory) {
 
         if(block.type != EFI_ConventionalMemory) continue;
 
-        BlockHeader *header = (BlockHeader *) (
-            block.virtAddr != 0 ?
-                block.virtAddr :
-                block.physAddr
-        );
+        u64 start = (u64) kernel_entry;
+        u64 end   = (u64) kernel_entry + 4 * 1024 * 1024;
+
+        if(block.physAddr >= start && block.physAddr <= end) continue;
+        if(block.physAddr < 4 * 1024 * 1024) continue;
+
+        BlockHeader *header = (BlockHeader *) (block.physAddr);
 
         header -> size = block.numPages * 4096;
         totalUsable += header -> size;

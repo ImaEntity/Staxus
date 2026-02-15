@@ -4,14 +4,14 @@
 #include <video/print.h>
 
 static MemoryManager gManager = {0};
-boolean LoadMemoryManager(MemoryManager manager, MemoryMap *map) {
+boolean LoadMemoryManager(MemoryManager manager, MemoryMap *map, void *kernel_entry) {
     if(gManager.cleanup != NULL)
         gManager.cleanup();
 
     gManager = manager;
 
     if(gManager.init == NULL) return false;
-    gManager.init(map);
+    gManager.init(map, kernel_entry);
 
     return true;
 }

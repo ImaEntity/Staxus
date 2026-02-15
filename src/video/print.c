@@ -2,6 +2,8 @@
 #include <types.h>
 
 #include <string/format.h>
+#include <string/utils.h>
+#include <memory/utils.h>
 #include <video/gop.h>
 #include <stdarg.h>
 
@@ -30,7 +32,7 @@ u64 HexString(u64 hex, wString buf, boolean useCaps) {
     return i;
 }
 
-void vsprintf(wString buf, wString fmt, va_list args) {
+void vslprintf(wString buf, wString fmt, va_list args) {
     u64 idx = 0;
     while(*fmt != '\0') {
         if(*fmt != '%') {
@@ -43,8 +45,10 @@ void vsprintf(wString buf, wString fmt, va_list args) {
         switch(*fmt) {
             case 's': {
                 u64 i = 0;
-                wString str = va_arg(args, wString);
-                while(str[i] != '\0') buf[idx++] = str[i++];
+                String str = va_arg(args, String);
+                if(str != NULL) while(str[i] != '\0') buf[idx++] = str[i++];
+                else buf[idx++] = '(', buf[idx++] = 'n', buf[idx++] = 'u', buf[idx++] = 'l', buf[idx++] = 'l', buf[idx++] = ')';
+
                 break;
             }
 
@@ -87,11 +91,18 @@ void vsprintf(wString buf, wString fmt, va_list args) {
                     if(*(fmt + 1) == 'X')      idx += HexString(va_arg(args, u64), buf + idx, true);
                     else if(*(fmt + 1) == 'x') idx += HexString(va_arg(args, u64), buf + idx, false);
                     else if(*(fmt + 1) == 'u') idx += UIntToString(va_arg(args, u64), buf + idx, 10);
+                    else if(*(fmt + 1) == 'b') idx += UIntToString(va_arg(args, u64), buf + idx, 2);
 
                     if(pIdx != idx) fmt++;
                     else idx += IntToString(va_arg(args, i64), buf + idx, 10);
                 } else if(*fmt == 'f') idx += FloatToString(va_arg(args, double), buf + idx, 10, 15);
-                else idx += IntToString(va_arg(args, i32), buf + idx, 10);
+                else if(*fmt == 's') {
+                    u64 i = 0;
+                    wString str = va_arg(args, wString);
+
+                    if(str != NULL) while(str[i] != '\0') buf[idx++] = str[i++];
+                    else buf[idx++] = '(', buf[idx++] = 'n', buf[idx++] = 'u', buf[idx++] = 'l', buf[idx++] = 'l', buf[idx++] = ')';
+                } else idx += IntToString(va_arg(args, i32), buf + idx, 10);
 
                 break;
             }
@@ -144,6 +155,10 @@ void vsprintf(wString buf, wString fmt, va_list args) {
             case 'X':
                 idx += HexString(va_arg(args, u32), buf + idx, true);
                 break;
+
+            case 'b':
+                idx += UIntToString(va_arg(args, u32), buf + idx, 2);
+                break;
         }
 
         fmt++;
@@ -152,10 +167,10 @@ void vsprintf(wString buf, wString fmt, va_list args) {
     buf[idx] = '\0';
 }
 
-void sprintf(wString buf, wString fmt, ...) {
+void slprintf(wString buf, wString fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    vsprintf(buf, fmt, args);
+    vslprintf(buf, fmt, args);
     va_end(args);
 }
 
@@ -170,12 +185,13 @@ void InitializePrint(FrameBuffer *fb, PSFFont *font) {
     charY = 0;
 }
 
-void printf(wString fmt, ...) {
-    wchar buf[1024];
+void lprintf(wString fmt, ...) {
+    static wchar buf[1024];
+    memset(buf, 0, sizeof(buf));
     
     va_list args;
     va_start(args, fmt);
-    vsprintf(buf, fmt, args);
+    vslprintf(buf, fmt, args);
     va_end(args);
 
     if((charY + 1) * defaultFont -> header -> charSize >= defaultFB -> Height) {
@@ -186,6 +202,7 @@ void printf(wString fmt, ...) {
     for(u64 i = 0; buf[i] != '\0'; i++) {
         if(buf[i] == '\n') {
             charY++;
+            charX = 0;
             continue;
         }
 
@@ -197,4 +214,49 @@ void printf(wString fmt, ...) {
         DrawChar(defaultFB, defaultFont, buf[i], charX * 8, charY * defaultFont -> header -> charSize, 0x999999);
         charX++;
     }
+}
+
+
+void vsprintf(String buf, String fmt, va_list args) {
+    static wchar wbuf[1024];
+    static wchar wfmt[1024];
+
+    memset(wbuf, 0, sizeof(wbuf));
+    memset(wfmt, 0, sizeof(wfmt));
+    
+    int p = 0;
+    while(fmt[p] != 0) {wfmt[p] = fmt[p]; p++;}
+    wfmt[p] = 0;
+
+    vslprintf(wbuf, wfmt, args);
+
+    p = 0;
+    while(wbuf[p] != 0) {buf[p] = wbuf[p]; p++;}
+    buf[p] = 0;
+}
+
+void sprintf(String buf, String fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vsprintf(buf, fmt, args);
+    va_end(args);
+}
+
+void printf(String fmt, ...) {
+    static char buf[1024];
+    static wchar wbuf[1024];
+
+    memset(buf, 0, sizeof(buf));
+    memset(wbuf, 0, sizeof(wbuf));
+
+    va_list args;
+    va_start(args, fmt);
+    vsprintf(buf, fmt, args);
+    va_end(args);
+
+    int p = 0;
+    while(buf[p] != 0) {wbuf[p] = buf[p]; p++;}
+    wbuf[p] = 0;
+
+    lprintf(wbuf);
 }

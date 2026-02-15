@@ -5,7 +5,7 @@
 #include <types.h>
 
 typedef struct {
-    void  (*init)   (MemoryMap *memory);
+    void  (*init)   (MemoryMap *memory, void *kernel_entry);
     void *(*malloc) (u64 size);
     void *(*aalloc) (u64 size, u64 align);
     void *(*realloc)(void *ptr, u64 size);
@@ -16,7 +16,7 @@ typedef struct {
     u64 (*get_available)();
 } MemoryManager;
 
-boolean LoadMemoryManager(MemoryManager manager, MemoryMap *map);
+boolean LoadMemoryManager(MemoryManager manager, MemoryMap *map, void *kernel_entry);
 
 void *malloc(u64 size);
 void *aalloc(u64 size, u64 align); // Aligned alloc

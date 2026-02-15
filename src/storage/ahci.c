@@ -12,7 +12,19 @@
 #define AHCI_SIG_PORTMUL 0x96690101
 #define AHCI_SIG_ENCLOSE 0xC33C0101
 
-#define ATA_CMD_IDENTIFY  0xEC
+#define ATA_CMD_READ_DMA          0xC8
+#define ATA_CMD_READ_DMA_EXT      0x25
+#define ATA_CMD_READ_SECTORS      0x20
+#define ATA_CMD_READ_SECTORS_EXT  0x24
+#define ATA_CMD_WRITE_DMA         0xCA
+#define ATA_CMD_WRITE_DMA_EXT     0x35
+#define ATA_CMD_WRITE_SECTORS     0x30
+#define ATA_CMD_WRITE_SECTORS_EXT 0x34
+#define ATA_CMD_IDENTIFY          0xEC
+#define ATA_CMD_IDENTIFY_PACKET   0xA1
+#define ATA_CMD_FLUSH_CACHE       0xE7
+#define ATA_CMD_FLUSH_CACHE_EXT   0xEA
+#define ATA_CMD_PACKET            0xA0
 
 #define HBA_PORT_IPM_ACTIVE 1
 #define HBA_PORT_DET_PRESENT 3
@@ -143,8 +155,14 @@ boolean sendPortCommand(
     tbl -> prdt[0].dbau = (qword) buffer >> 32;
     tbl -> prdt[0].dbc = (count * 512) - 1;
 
+    boolean writing = ataCommand == ATA_CMD_WRITE_DMA || 
+        ataCommand == ATA_CMD_WRITE_SECTORS_EXT ||
+        ataCommand == ATA_CMD_WRITE_DMA_EXT ||
+        ataCommand == ATA_CMD_WRITE_SECTORS;
+
     hdr[slot].prdtl = 1;
     hdr[slot].prdbc = 0;
+    hdr[slot].flags = 5 | (writing << 6);
 
     FIS_REG_H2D *fis = (FIS_REG_H2D *) (&tbl -> cfis);
     fis -> fis_type = FIS_TYPE_REG_H2D;
@@ -163,23 +181,53 @@ boolean sendPortCommand(
     fis -> counth = (count >> 8) & 0xFF;
 
     while((port -> tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) != 0);
+    while((port -> ci & (1 << slot)) != 0 || (port -> sact & (1 << slot)) != 0);
 
     port -> is = -1;
     port -> ci = 1 << slot;
+    
+    while((port -> ci & (1 << slot)) != 0);
 
-    while(port -> ci & (1 << slot));
-    if((port -> is & 0x40000000) != 0) return false;
+    u32 is = port -> is;
+    port -> is = is;
 
-    return true;
+    return (is & 0x40000000) == 0;
 }
 
-void toHumanReadable(wString result, u64 bytes);
-void InitializeAHCIController(AHCIController controller) {
-    HBA_MEM *hba = (HBA_MEM *) controller.baseAddrReg;
+#define AHCI_DRIVE_SATAPI  0b00000001
+#define AHCI_DRIVE_LBA48   0b00000010
 
-    printf(L"Initalizing AHCI controller\r\n");
+typedef struct {
+    HBA_PORT *port;
+    byte flags;
+} AHCIDrive;
 
-    int driveCount = 0;
+boolean readAHCIDrive(BlockDevice *device, void *buf, u64 lba, u64 count) {
+    AHCIDrive *drive = (AHCIDrive *) device -> internal;
+
+    byte cmd = ATA_CMD_READ_DMA;
+    if((drive -> flags & AHCI_DRIVE_LBA48) != 0)
+        cmd = ATA_CMD_READ_DMA_EXT;
+
+    return sendPortCommand(drive -> port, cmd, lba, count, buf);
+}
+
+boolean writeAHCIDrive(BlockDevice *device, void *buf, u64 lba, u64 count) {
+    AHCIDrive *drive = (AHCIDrive *) device -> internal;
+
+    byte cmd = ATA_CMD_WRITE_DMA;
+    if((drive -> flags & AHCI_DRIVE_LBA48) != 0)
+        cmd = ATA_CMD_WRITE_DMA_EXT;
+
+    return sendPortCommand(drive -> port, cmd, lba, count, buf);
+}
+
+void InitializeAHCIController(AHCIController *controller) {
+    HBA_MEM *hba = (HBA_MEM *) controller -> baseAddrReg;
+
+    printf("Initalizing AHCI controller\n");
+
+    u8 count = 0;
     for(int i = 0; i < 32; i++) {
         if((hba -> pi & (1 << i)) == 0) continue;
         HBA_PORT *port = hba -> ports + i;
@@ -214,14 +262,20 @@ void InitializeAHCIController(AHCIController controller) {
 
         word *identify_buf = aalloc(512, 128);
         if(!sendPortCommand(port, ATA_CMD_IDENTIFY, 0, 1, identify_buf)) {
-            printf(L"Failed to identify drive %d\r\n", i);
+            printf("Failed to identify drive %d\n", i);
             free(identify_buf);
             continue;
         }
 
-        controller.drives[driveCount].port = port;
-        controller.drives[driveCount].flags |= AHCI_DRIVE_PRESENT;
-
+        BlockDevice *device = malloc(sizeof(BlockDevice)); 
+        AHCIDrive *internal = malloc(sizeof(AHCIDrive));
+        
+        internal -> port = port;
+        device -> internal = internal;
+        device -> read = readAHCIDrive;
+        device -> write = writeAHCIDrive;
+        device -> flags = BLOCK_DEVICE_FLAG_PHYSICAL;
+    
         u32 lba28 = (u32) identify_buf[61] << 16 | identify_buf[60];
         u64 lba48 = 
             (u64) identify_buf[103] << 48 |
@@ -230,26 +284,46 @@ void InitializeAHCIController(AHCIController controller) {
             (u64) identify_buf[100];
 
         boolean hasLba48 = (identify_buf[83] & 0x400) != 0;
-        if(hasLba48) controller.drives[driveCount].flags |= AHCI_DRIVE_LBA48;
+        if(hasLba48) internal -> flags |= AHCI_DRIVE_LBA48;
 
-        controller.drives[driveCount].sectorCount = hasLba48 ? lba48 : lba28;
+        device -> sectorCount = hasLba48 ? lba48 : lba28;
         
         dword sectorSize = 512;
         if(identify_buf[106] & 0x1000)
             sectorSize = ((dword) identify_buf[117] << 16 | identify_buf[118]) << 1;
 
-        controller.drives[driveCount].sectorSize = sectorSize;
-        driveCount++;
+        device -> sectorSize = sectorSize;
+        wString model = (wString) malloc(41 * sizeof(wchar));
+        memset(model, 0, 41 * sizeof(wchar));
+
+        boolean foundNonSpace = false;
+        for(int j = 46; j >= 27; j--) {
+            u8 upper = identify_buf[j] >> 8;
+            u8 lower = identify_buf[j] & 0xFF;
+
+            if(lower == ' ' && !foundNonSpace)
+                model[(j - 27) * 2 + 1] = 0;
+
+            if(lower != ' ' || foundNonSpace) {
+                model[(j - 27) * 2 + 1] = lower;
+                foundNonSpace = true;
+            }
+
+            if(upper == ' ' && !foundNonSpace)
+                model[(j - 27) * 2] = 0;
+
+            if(upper != ' ' || foundNonSpace) {
+                model[(j - 27) * 2] = upper;
+                foundNonSpace = true;
+            }
+        }
+
+        device -> model = model;
+        RegisterBlockDevice(device);
+        count++;
 
         free(identify_buf);
-
-        wchar tmp[100];
-        toHumanReadable(tmp, (hasLba48 ? lba48 : lba28) * sectorSize);
-        printf(
-            L"Found AHCI drive with %d blocks of size %d (%s)\r\n",
-            hasLba48 ? lba48 : lba28,
-            sectorSize,
-            tmp
-        );
     }
+
+    printf("Registered %d AHCI block devices\n", count);
 }

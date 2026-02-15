@@ -7,8 +7,12 @@
 
 void InitializePrint(FrameBuffer *fb, PSFFont *font);
 
-void vsprintf(wString buf, wString fmt, va_list args);
-void  sprintf(wString buf, wString fmt, ...);
-void   printf(             wString fmt, ...);
+void vsprintf(String buf, String fmt, va_list args);
+void  sprintf(String buf, String fmt, ...);
+void   printf(            String fmt, ...);
+
+void vslprintf(wString buf, wString fmt, va_list args);
+void  slprintf(wString buf, wString fmt, ...);
+void   lprintf(             wString fmt, ...);
 
 #endif
