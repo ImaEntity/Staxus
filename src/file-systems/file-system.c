@@ -128,6 +128,8 @@ u64 fread(void *buffer, u64 size, u64 count, FILE *file) {
 }
 
 u64 fwrite(void *buffer, u64 size, u64 count, FILE *file) {
+    return 0;
+    
     if(file == NULL) return false;
     if((file -> flags & FILE_OPEN_WRITE) == 0) return false;
 
@@ -142,6 +144,8 @@ u64 fwrite(void *buffer, u64 size, u64 count, FILE *file) {
 }
 
 u64 fprintf(FILE *fp, String fmt, ...) {
+    return 0;
+
     va_list args;
     va_start(args, fmt);
 
@@ -198,6 +202,8 @@ inline void rewind(FILE *file) {
 
 
 boolean rename(const String old, const String new) {
+    return false;
+
     String relPathOld;
     FSMount *oldMount = getMount(old, &relPathOld);
 
@@ -240,6 +246,8 @@ boolean rename(const String old, const String new) {
 }
 
 boolean remove(const String path) {
+    return false;
+    
     String relPath;
     FSMount *mount = getMount(path, &relPath);
 
@@ -251,6 +259,8 @@ boolean remove(const String path) {
 
 
 boolean mkdir(const String path) {
+    return false;
+
     String relPath;
     FSMount *mount = getMount(path, &relPath);
 

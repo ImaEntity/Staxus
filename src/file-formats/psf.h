@@ -36,6 +36,7 @@ typedef struct {
     u16           *unicodeTable;
 } PSFFont;
 
-PSFFont *LoadFont(EFI_SYSTEM_TABLE *SysTbl, EFI_FILE *file, u64 fileSize);
+PSFFont *LoadFontEFI(EFI_SYSTEM_TABLE *SysTbl, EFI_FILE *file, u64 fileSize);
+PSFFont *LoadFont(const String path);
 
 #endif

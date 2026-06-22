@@ -22,6 +22,22 @@ u32 RegisterPartitionBlocks(BlockDevice *device) {
     return -1;
 }
 
+
+static u16 partitionCount = 0;
+static Partition *partitions[MAX_PARTITIONS];
+boolean RegisterPartition(Partition *part) {
+    if(partitionCount >= MAX_PARTITIONS) return false;
+
+    partitions[partitionCount++] = part;
+    return true;
+}
+
+Partition **GetPartitions(u16 *count) {
+    if(count != NULL) *count = partitionCount;
+    return partitions;
+}
+
+
 boolean readPartition(BlockDevice *device, void *buffer, u64 sector, u64 count) {
     Partition *part = (Partition *) device -> internal;
     if(sector + count > device -> sectorCount) return false;

@@ -109,7 +109,9 @@ u32 registerGPTPartitionBlocks(BlockDevice *device) {
 
         part -> type = 0; // TODO: Map GUID to type enum
         part -> lbaStart = entry -> firstLBA;
+        part -> lbaEnd = entry -> lastLBA;
         part -> parent = device;
+        part -> device = dev;
 
         dev -> internal = part;
         dev -> sectorCount = entry -> lastLBA - entry -> firstLBA + 1;
@@ -118,7 +120,7 @@ u32 registerGPTPartitionBlocks(BlockDevice *device) {
         ApplyGenericPartitionData(device, dev);
 
         count++;
-        if(!RegisterBlockDevice(dev)) {
+        if(!RegisterBlockDevice(dev) || !RegisterPartition(part)) {
             free(model);
             free(part);
             free(dev);

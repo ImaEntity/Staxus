@@ -4,6 +4,8 @@
 #include <memory/utils.h>
 #include <memory/map.h>
 
+#define MIN_ADDR (4 * 1024 * 1024)
+
 #define MEM_IN_USE  0b00000001
 #define MEM_ALIGNED 0b00000010
 
@@ -25,18 +27,17 @@ void idalloc_init(MemoryMap *memory, void *kernel_entry) {
 
     firstBlock = NULL;
     totalUsable = 0;
-    
+
     for(u64 i = 0; i < memory -> mapSize / memory -> descriptorSize; i++) {
         byte *blocks = (byte *) memory -> map;
         MemoryDescriptor block = *(MemoryDescriptor *) (blocks + i * memory -> descriptorSize);
 
         if(block.type != EFI_ConventionalMemory) continue;
-
-        u64 start = (u64) kernel_entry;
-        u64 end   = (u64) kernel_entry + 4 * 1024 * 1024;
-
-        if(block.physAddr >= start && block.physAddr <= end) continue;
-        if(block.physAddr < 4 * 1024 * 1024) continue;
+        if(block.physAddr < MIN_ADDR) {
+            if(block.physAddr + block.numPages * 4096 < MIN_ADDR) continue;
+            block.numPages -= (MIN_ADDR - block.physAddr) / 4096;
+            block.physAddr = MIN_ADDR;
+        }
 
         BlockHeader *header = (BlockHeader *) (block.physAddr);
 

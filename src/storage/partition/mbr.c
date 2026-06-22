@@ -53,7 +53,9 @@ u32 registerMBRPartitionBlocks(BlockDevice *device) {
 
         part -> type = entry[4];
         part -> lbaStart = *(u32 *) (entry + 8);
+        part -> lbaEnd = part -> lbaStart + *(u32 *) (entry + 12) - 1;
         part -> parent = device;
+        part -> device = dev;
 
         dev -> internal = part;
         dev -> sectorCount = *(u32 *) (entry + 12);
@@ -62,7 +64,7 @@ u32 registerMBRPartitionBlocks(BlockDevice *device) {
         ApplyGenericPartitionData(device, dev);
 
         count++;
-        if(!RegisterBlockDevice(dev)) {
+        if(!RegisterBlockDevice(dev) || !RegisterPartition(part)) {
             free(model);
             free(part);
             free(dev);

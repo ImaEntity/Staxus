@@ -1,10 +1,10 @@
-#include "psf.h"
+#include <file-formats/psf.h>
 #include <types.h>
 
 #include <gnu-efi/inc/efi.h>
 #include <gnu-efi/inc/efilib.h>
 
-PSFFont *LoadFont(EFI_SYSTEM_TABLE *SysTbl, EFI_FILE *file, u64 fileSize) {
+PSFFont *LoadFontEFI(EFI_SYSTEM_TABLE *SysTbl, EFI_FILE *file, u64 fileSize) {
     PSFFont *font;
 
     SysTbl -> BootServices -> AllocatePool(EfiLoaderData, sizeof(PSFFont), (void **) &font);

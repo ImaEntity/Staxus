@@ -16,11 +16,44 @@
 EFI_HANDLE ImgHdl;
 EFI_SYSTEM_TABLE *SysTbl;
 
+typedef struct {
+    u64 partitionStart;
+    u64 partitionSize;
+    u8 partitionGUID[16];
+    u32 paritionNumber;
+} BootDeviceInfo;
+
 FrameBuffer *EFIAPI InitializeGOP() {
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
     if(SysTbl -> BootServices -> LocateProtocol(&gEfiGraphicsOutputProtocolGuid, NULL, (void **) &gop) != EFI_SUCCESS)
         return NULL;
+
+    UINTN infoSize;
+    UINTN modeCount;
+    UINTN nativeMode;
+
+    EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info;
+    if(gop -> QueryMode(gop, gop -> Mode -> Mode, &infoSize, &info) != EFI_SUCCESS)
+        return NULL;
     
+    nativeMode = gop -> Mode -> Mode;
+    modeCount = gop -> Mode -> MaxMode;
+
+    for(int i = 0; i < modeCount; i++) {
+        if(gop -> QueryMode(gop, i, &infoSize, &info) != EFI_SUCCESS)
+            continue;
+
+        if(info -> HorizontalResolution == 1280 && info -> VerticalResolution == 720) {
+            nativeMode = i;
+            break;
+        }
+    }
+
+    nativeMode = nativeMode;
+
+    if(gop -> SetMode(gop, nativeMode) != EFI_SUCCESS)
+        return NULL;
+
     FrameBuffer *fb;
     SysTbl -> BootServices -> AllocatePool(EfiLoaderData, sizeof(FrameBuffer), (void **) &fb);
 
@@ -31,6 +64,46 @@ FrameBuffer *EFIAPI InitializeGOP() {
     fb -> PixelsPerScan =          gop -> Mode -> Info -> PixelsPerScanLine;
 
     return fb;
+}
+
+BootDeviceInfo *EFIAPI GetBootDevice() {
+    BootDeviceInfo *bootInfo;
+    EFI_DEVICE_PATH_PROTOCOL *devicePath;
+    EFI_LOADED_IMAGE_PROTOCOL *loadedImage;
+
+    if(SysTbl -> BootServices -> HandleProtocol(
+        ImgHdl,
+        &gEfiLoadedImageProtocolGuid,
+        (void **) &loadedImage
+    ) != EFI_SUCCESS) return NULL;
+
+    if(SysTbl -> BootServices -> HandleProtocol(
+        loadedImage -> DeviceHandle,
+        &gEfiDevicePathProtocolGuid,
+        (void **) &devicePath
+    ) != EFI_SUCCESS) return NULL;
+
+    EFI_DEVICE_PATH_PROTOCOL *node = devicePath;
+    while(!IsDevicePathEnd(node)) {
+        if(DevicePathType(node) != MEDIA_DEVICE_PATH || node -> SubType != MEDIA_HARDDRIVE_DP) {
+            node = NextDevicePathNode(node);
+            continue;
+        }
+
+        SysTbl -> BootServices -> AllocatePool(EfiLoaderData, sizeof(BootDeviceInfo), (void **) &bootInfo);
+
+        HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) node;
+        bootInfo -> partitionStart = hd -> PartitionStart;
+        bootInfo -> partitionSize  = hd -> PartitionSize;
+        bootInfo -> paritionNumber = hd -> PartitionNumber;
+
+        for(int i = 0; i < 16; i++)
+            bootInfo -> partitionGUID[i] = hd -> Signature[i];
+
+        return bootInfo;
+    }
+
+    return NULL;
 }
 
 EFI_FILE *EFIAPI LoadDirectory(EFI_FILE *parentDirectory, wString path) {
@@ -185,14 +258,15 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".");
 
-    byte *fileData;
+    EFI_PHYSICAL_ADDRESS kernelBase = 0x100000;
     u64 fileSize = GetFileSize(file);
-    if(SysTbl -> BootServices -> AllocatePool(EfiLoaderData, fileSize, (void **) &fileData) != EFI_SUCCESS)
+    u64 pages = (fileSize + 0xFFF) >> 12;
+    if(SysTbl -> BootServices -> AllocatePages(AllocateAddress, EfiLoaderData, pages, (void *) &kernelBase) != EFI_SUCCESS)
         return ExitWithError(ERROR_MEM_ALLOC_FAIL);
     
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".");
 
-    if(file -> Read(file, &fileSize, (void *) fileData) != EFI_SUCCESS)
+    if(file -> Read(file, &fileSize, (void *) kernelBase) != EFI_SUCCESS)
         return ExitWithError(ERROR_DEVICE_READ_FAIL);
 
     file -> Close(file);
@@ -200,7 +274,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".\r\nKernel loaded!\r\n");
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L"Wait hold on, last minute fetch quest.");
 
-    void (*kernel_entry)(FrameBuffer *, PSFFont *, MemoryMap *) = (void *) fileData;
+    void (*kernel_entry)(FrameBuffer *, PSFFont *, MemoryMap *, BootDeviceInfo *) = (void *) kernelBase;
 
     FrameBuffer *fb = InitializeGOP();
     if(fb == NULL) return ExitWithError(ERROR_PROTOCOL_MISSING);
@@ -217,7 +291,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     if(fontFile == NULL) return ExitWithError(ERROR_DEVICE_OPEN_FAIL);
 
     u64 fontFileSize = GetFileSize(fontFile);
-    PSFFont *font = LoadFont(SysTbl, fontFile, fontFileSize);
+    PSFFont *font = LoadFontEFI(SysTbl, fontFile, fontFileSize);
     if(font == NULL) return ExitWithError(ERROR_PROTOCOL_MISSING);
 
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".");
@@ -272,11 +346,14 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         desc = (EFI_MEMORY_DESCRIPTOR *) ((byte *) desc + memory -> descriptorSize);
     }
 
+    BootDeviceInfo *bootDevice = GetBootDevice();
+    if(bootDevice == NULL) return ExitWithError(ERROR_PROTOCOL_MISSING);
+
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".\r\nFinished last minute fetch quest!\r\n");
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L"Jumping to kernel...\r\n");
 
     SysTbl -> BootServices -> ExitBootServices(ImageHandle, mapKey);
-    kernel_entry(fb, font, memory);
+    kernel_entry(fb, font, memory, bootDevice);
     
     SysTbl -> RuntimeServices -> ResetSystem(EfiResetCold, EFI_ABORTED, 0, NULL);
     return EFI_SUCCESS; // not really a success if the kernel returned

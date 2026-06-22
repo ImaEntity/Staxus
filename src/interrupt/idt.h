@@ -1,7 +1,8 @@
-#ifndef HH_INTERUPTS
-#define HH_INTERUPTS
+#ifndef HH_INTERUPT_IDT
+#define HH_INTERUPT_IDT
 
 #include <types.h>
+#include "interrupt.h"
 
 #pragma pack(push, 1)
 
@@ -22,7 +23,8 @@ typedef struct {
 
 #pragma pack(pop)
 
-void InitializeInterupts();
-void RegisterIRQ(byte irqNum, void (*handler)());
+void setIDTEntry(byte index, void *offset, word sel, byte flags);
+void initalizeIDT();
+void loadIDT();
 
 #endif
