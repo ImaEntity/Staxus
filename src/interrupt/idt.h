@@ -1,5 +1,5 @@
-#ifndef HH_INTERUPT_IDT
-#define HH_INTERUPT_IDT
+#ifndef HH_INTERRUPT_IDT
+#define HH_INTERRUPT_IDT
 
 #include <types.h>
 #include "interrupt.h"
@@ -14,16 +14,16 @@ typedef struct {
     word  mOff;
     dword hOff;
     dword zero;
-} InteruptTableEntry;
+} InterruptTableEntry;
 
 typedef struct {
     word  size;
     qword offset;
-} InteruptTablePointer;
+} InterruptTablePointer;
 
 #pragma pack(pop)
 
-void setIDTEntry(byte index, void *offset, word sel, byte flags);
+void setIDTEntry(byte index, void (*offset)(byte), word sel, byte flags);
 void initalizeIDT();
 void loadIDT();
 

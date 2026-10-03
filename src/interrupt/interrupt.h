@@ -1,10 +1,10 @@
-#ifndef HH_INTERUPT
-#define HH_INTERUPT
+#ifndef HH_INTERRUPT
+#define HH_INTERRUPT
 
 #include <types.h>
+#include "isr.h"
 
-void RegisterIRQ(byte irqNum, void (*handler)());
-void InitializeInterrupts();
-void FinalizeInterrupts();
+void RegisterIRQ(byte irqNum, void (*handler)(Registers *r));
+boolean InitializeInterrupts();
 
 #endif

@@ -32,7 +32,7 @@ u64 HexString(u64 hex, wString buf, boolean useCaps) {
     return i;
 }
 
-void vslprintf(wString buf, wString fmt, va_list args) {
+int vslprintf(wString buf, wString fmt, va_list args) {
     u64 idx = 0;
     while(*fmt != '\0') {
         if(*fmt != '%') {
@@ -165,13 +165,17 @@ void vslprintf(wString buf, wString fmt, va_list args) {
     }
 
     buf[idx] = '\0';
+    return idx;
 }
 
-void slprintf(wString buf, wString fmt, ...) {
+int slprintf(wString buf, const wString fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    vslprintf(buf, fmt, args);
+
+    int r = vslprintf(buf, fmt, args);
+
     va_end(args);
+    return r;
 }
 
 static FrameBuffer *defaultFB;
@@ -185,13 +189,13 @@ void InitializePrint(FrameBuffer *fb, PSFFont *font) {
     charY = 0;
 }
 
-void lprintf(wString fmt, ...) {
+int lprintf(const wString fmt, ...) {
     static wchar buf[1024];
     memset(buf, 0, sizeof(buf));
     
     va_list args;
     va_start(args, fmt);
-    vslprintf(buf, fmt, args);
+    int r = vslprintf(buf, fmt, args);
     va_end(args);
 
     if((charY + 1) * defaultFont -> header -> charSize >= defaultFB -> Height) {
@@ -214,10 +218,12 @@ void lprintf(wString fmt, ...) {
         DrawChar(defaultFB, defaultFont, buf[i], charX * 8, charY * defaultFont -> header -> charSize, 0x999999);
         charX++;
     }
+
+    return r;
 }
 
 
-void vsprintf(String buf, String fmt, va_list args) {
+int vsprintf(String buf, const String fmt, va_list args) {
     static wchar wbuf[1024];
     static wchar wfmt[1024];
 
@@ -228,21 +234,25 @@ void vsprintf(String buf, String fmt, va_list args) {
     while(fmt[p] != 0) {wfmt[p] = fmt[p]; p++;}
     wfmt[p] = 0;
 
-    vslprintf(wbuf, wfmt, args);
+    int r = vslprintf(wbuf, wfmt, args);
 
     p = 0;
     while(wbuf[p] != 0) {buf[p] = wbuf[p]; p++;}
     buf[p] = 0;
+
+    return r;
 }
 
-void sprintf(String buf, String fmt, ...) {
+int sprintf(String buf, const String fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    vsprintf(buf, fmt, args);
+    int r = vsprintf(buf, fmt, args);
     va_end(args);
+
+    return r;
 }
 
-void printf(String fmt, ...) {
+int printf(const String fmt, ...) {
     static char buf[1024];
     static wchar wbuf[1024];
 
@@ -258,5 +268,5 @@ void printf(String fmt, ...) {
     while(buf[p] != 0) {wbuf[p] = buf[p]; p++;}
     wbuf[p] = 0;
 
-    lprintf(wbuf);
+    return lprintf(wbuf);
 }

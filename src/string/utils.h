@@ -9,6 +9,7 @@ String strcat(String dst, const String src);
 int    strcmp(const String str1, const String str2);
 String strchr(const String src, char value);
 int    stricmp(const String str1, const String str2);
+qword  strihsh(const String src);
 
 char toupper(char src);
 char tolower(char src);
@@ -21,6 +22,7 @@ wString wcscat(wString dst, const wString src);
 int     wcscmp(const wString str1, const wString str2);
 wString wcschr(const wString src, char value);
 int     wcsicmp(const wString str1, const wString str2);
+qword   wcsihsh(const wString src);
 
 wchar towupper(wchar src);
 wchar towlower(wchar src);

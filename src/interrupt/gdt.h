@@ -1,6 +1,8 @@
-#ifndef HH_INTERUPT_GDT
-#define HH_INTERUPT_GDT
+#ifndef HH_INTERRUPT_GDT
+#define HH_INTERRUPT_GDT
 
-void InitializeGDT();
+#include <types.h>
+
+void InitializeGDT(u64 r0StackTop);
 
 #endif

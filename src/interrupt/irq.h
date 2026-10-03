@@ -1,9 +1,9 @@
-#ifndef HH_INTERUPT_IRQ
-#define HH_INTERUPT_IRQ
+#ifndef HH_INTERRUPT_IRQ
+#define HH_INTERRUPT_IRQ
 
 #include <types.h>
 
-void initalizeIRQs();
-void installIRQ(byte irqNum, void (*handler)(byte index));
+boolean initalizeIRQs();
+void installIRQ(byte irqNum, void (*handler)());
 
 #endif

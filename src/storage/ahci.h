@@ -2,7 +2,7 @@
 #define HH_STORAGE_AHCI
 
 #include <types.h>
-#include <storage/block.h>
+// #include <storage/block.h>
 
 typedef volatile struct {
     dword clb;       // 0x00 command list base
@@ -50,6 +50,6 @@ typedef struct {
 } AHCIController;
 
 AHCIController FindAHCIController();
-void InitializeAHCIController(AHCIController *controller);
+u8 InitializeAHCIController(AHCIController *controller);
 
 #endif

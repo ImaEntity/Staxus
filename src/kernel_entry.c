@@ -1,7 +1,9 @@
 #include <types.h>
 #include <video/gop.h>
-#include <file-formats/psf.h>
 #include <video/print.h>
+#include <file-formats/pe.h>
+#include <file-formats/psf.h>
+#include <file-systems/fat32.h>
 #include <memory/alloc.h>
 #include <memory/managers.h>
 #include <memory/utils.h>
@@ -9,10 +11,13 @@
 #include <storage/partition/partition.h>
 #include <storage/partition/mbr.h>
 #include <storage/partition/gpt.h>
-#include <file-systems/fat32.h>
 #include <interrupt/interrupt.h>
 #include <interrupt/gdt.h>
 #include <string/utils.h>
+#include <io/keyboard.h>
+#include <io/serial.h>
+#include <io/mouse.h>
+#include <math/math.h>
 #include <stdarg.h>
 
 typedef struct {
@@ -24,7 +29,7 @@ typedef struct {
 
 void printDir(String tabs, String path);
 void toHumanReadable(String result, u64 bytes);
-void log(String fmt, ...);
+void dbg(String fmt, ...);
 void handleNullJump();
 
 void PIT_SetFrequency(u32 hertz);
@@ -61,6 +66,11 @@ void kernelExit() {
     while(1) asm volatile("hlt");
 }
 
+void OnMouseEvent(MouseEvent event) {
+    DrawLine(frame, event.prevX, event.prevY, event.curX, event.curY, 0x0000FF);
+    printf("Mouse event %x %x %x %x %d %x %x", event.prevX, event.prevY, event.curX, event.curY, event.scrollAmount, event.prevButtons, event.buttons);
+}
+
 void kernelMain(
     FrameBuffer *fb,
     PSFFont *defaultFont,
@@ -69,6 +79,9 @@ void kernelMain(
 ) {
     ClearScreen(fb, 0); // black
     InitializePrint(fb, defaultFont);
+
+    *(void **) 0x1000000 = fb;
+    *(void **) 0x1000008 = defaultFont;
 
     byte shell[] = {
         0xFA,                                                       // cli
@@ -80,37 +93,25 @@ void kernelMain(
     frame = fb;
     defFont = defaultFont;
 
-    printf("kernel base check: %p\n", (u64) kernel_entry);
+    dbg("Hello, world!\n");
 
-    log("Hello, world!\n");
+    InitializeGDT(((u64) stack + sizeof(stack) - 1024) & ~0xF);
+    if(!InitializeInterrupts()) {
+        dbg("No APIC present on system\n");
+        while(1);
+    }
 
-    // // Initialize interupts
-    InitializeInterrupts();
-    // printf("init interrupts\n");
+    InitializeSerial(COM1, NULL);
 
-    PIT_SetFrequency(1000);
-    // printf("set freq\n");
-
-    RegisterIRQ(0, (void *) TickPIT);
-    // printf("registered irq\n");
-
-    // // Initialize GDT
-    InitializeGDT();
-
-    FinalizeInterrupts();
-    // printf("finalized interrupts\n");
-
-    asm volatile("sti");
-    // printf("enabled interrupts\n");
-
+    dbg("Initialized screen as %u x %u\n", fb -> Width, fb -> Height);
     if(!LoadMemoryManager(IDENTITY_ALLOCATOR, memoryMap, kernel_entry)) {
-        log("Failed to initialize memory manager\n");
+        dbg("Failed to initialize memory manager\n");
         while(1);
     }
 
     char tmp[100];
-    toHumanReadable(tmp, GetUsableMemory());
-    log("Initalized %s of usable memory\n", tmp);
+    toHumanReadable(tmp, GetUseableMemory());
+    dbg("Initialized %s of useable memory\n", tmp);
     
     RegisterGPTPartitionController();
     RegisterMBRPartitionController();
@@ -118,14 +119,18 @@ void kernelMain(
     RegisterFAT32FileSystem();
 
     // Initialize keyboard / mouse
+    // dbg("Initialized mouse with ID %u\n", InitializeMouse(OnMouseEvent));
 
     // Initialize storage devices
     AHCIController controller = FindAHCIController();
-    if(controller.baseAddrReg != 0) InitializeAHCIController(&controller);
+    if(controller.baseAddrReg != 0) {
+        dbg("Found AHCI controller\n");
+        u8 ahciCount = InitializeAHCIController(&controller);
+        dbg("Registered %d AHCI block devices\n", ahciCount);
+    }
 
     u16 count;
     BlockDevice **devices = GetBlockDevices(&count);
-
     for(u16 i = 0; i < count; i++) {
         BlockDevice *dev = devices[i];
         if((dev -> flags & BLOCK_DEVICE_FLAG_PHYSICAL) != 0)
@@ -143,18 +148,23 @@ void kernelMain(
 
         char sizeStr[100];
         toHumanReadable(sizeStr, part -> device -> sectorCount * part -> device -> sectorSize);
-        log("Found partition %d: %s\n", i, sizeStr);
+        dbg("Found partition %d: %s\n", i, sizeStr);
     }
 
-    // mkdir("/krnlstate");
-
     printDir("", "/");
-    log("\n");
+    dbg("\n");
 
     // Initialize GPU?
 
-    toHumanReadable(tmp, GetUsableMemory() - GetAvailableMemory());
-    log("Using %s of memory after initalizing core systems\n", tmp);
+    PEModule exe = LoadPEFile("/resources", "test_pe.exe");
+    void (*entry)() = GetPEEntry(exe);
+    entry(fb, defaultFont);
+    UnloadPEFile(exe);
+
+    toHumanReadable(tmp, GetUseableMemory() - GetAvailableMemory());
+    dbg("Using %s of memory after initalizing core systems\n", tmp);
+
+    // asm volatile("int $0x2c");
 
     while(1);
 }
@@ -175,11 +185,11 @@ void toHumanReadable(String result, u64 bytes) {
 void printDir(String tabs, String path) {
     Dir *dir = opendir(path);
     if(dir == NULL) {
-        log("failed: %s\n", path);
+        dbg("failed: %s\n", path);
         return;
     }
 
-    log("%s%s\n", tabs, path);
+    dbg("%s%s\n", tabs, path);
 
     String newTabs = malloc(strlen(tabs) + 5);
     strcpy(newTabs, tabs); strcat(newTabs, "    ");
@@ -190,7 +200,7 @@ void printDir(String tabs, String path) {
             continue;
         
         u64 pLen = strlen(path);
-        String fullPath = malloc(pLen + strlen(ent->name) + 2);
+        String fullPath = malloc(pLen + strlen(ent -> name) + 2);
         strcpy(fullPath, path);
         if(path[pLen - 1] != '/') strcat(fullPath, "/");
         strcat(fullPath, ent -> name);
@@ -201,7 +211,7 @@ void printDir(String tabs, String path) {
             char buf[100];
             toHumanReadable(buf, ent -> size);
 
-            log("%s%s (%s)\n", newTabs, ent -> name, buf);
+            dbg("%s%s (%s)\n", newTabs, ent -> name, buf);
         }
 
         free(fullPath);
@@ -237,24 +247,59 @@ void handleNullJump() {
     while(1);
 }
 
-void log(String fmt, ...) {
+void dbg(String fmt, ...) {
     va_list args;
     va_start(args, fmt);
 
     static char buf[1024];
     memset(buf, 0, sizeof(buf));
 
-    vsprintf(buf, fmt, args);
+    int len = vsprintf(buf, fmt, args);
+    va_end(args);
     
     printf(buf);
-    // if(!exists("/krnlstate")) return;
-
-    // FILE *fp = fopen("/krnlstate/setup.log", "a");
-    // fprintf(fp, buf); fclose(fp);
+    if(SerialActive()) WriteSerial((byte *) buf, len);
 }
 
+static f64 g = 0;
+static int ticks = 0;
 void TickPIT() {
-    printf("hgit\n");
+    printf("Got interrupt!\n");
+    
+    ticks++;
+    if(ticks < 10) return;
+
+    u32 cx = frame -> Width / 2;
+    u32 cy = frame -> Height / 2;
+    i32 r = 250;
+    i32 s = 100;
+
+    for(i32 y = -r; y <= r; y++) {
+        for(i32 x = -r; x <= r; x++) {
+            SetPixel(frame, cx + x, cy + y, 0);
+
+            f64 ang = atan2(y, x) + PI / 2;
+            if(ang < 0) ang += 2 * PI;
+            if(ang > 2 * PI) ang -= 2 * PI;
+            ang /= 2 * PI;
+
+            if(ang > g) continue;
+
+            if(x * x + y * y > r * r) continue;
+            if(x * x + y * y < (r - s) * (r - s)) continue;
+
+            u32 col = 0xFF00FF;
+            if((((x >> 5) + (y >> 5)) & 1) == 0) col = 0x000000;
+            if(x * x + y * y > (r - 2) * (r - 2)) col = 0xFFFFFF;
+            if(x * x + y * y < (r - s + 2) * (r - s + 2)) col = 0xFFFFFF;
+            if(ang + 0.001 > g || ang < 0.001) col = 0xFFFFFF;
+
+            SetPixel(frame, cx + x, cy + y, col);
+        }
+    }
+
+    g += 0.01;
+    ticks = 0;
 }
 
 FrameBuffer *getFrameBuffer() {

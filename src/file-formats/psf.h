@@ -1,12 +1,12 @@
-#ifndef HH_PSF
-#define HH_PSF
+#ifndef HH_FORMAT_PSF
+#define HH_FORMAT_PSF
 
 #include <types.h>
 #include <gnu-efi/inc/efi.h>
 
-#define PSF_MODE512    0b00000001
-#define PSF_MODEHASTAB 0b00000010
-#define PSF_MODESEQ    0b00000100
+#define PSF_MODE512    0x01
+#define PSF_MODEHASTAB 0x02
+#define PSF_MODESEQ    0x04
 
 #define PSF_MAGIC 0x0436
 typedef struct {

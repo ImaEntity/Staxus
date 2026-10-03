@@ -30,3 +30,15 @@ void *memchr(const void *src, int value, u64 size) {
 
     return NULL;
 }
+
+qword memhsh(const void *src, u64 size) {
+    const byte *p = src;
+    qword hash = 14695981039346656037llu;
+
+    for(u64 i = 0; i < size; i++) {
+        hash ^= p[i];
+        hash *= 1099511628211llu;
+    }
+
+    return hash;
+}

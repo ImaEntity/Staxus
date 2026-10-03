@@ -65,6 +65,17 @@ int stricmp(const String str1, const String str2) {
     return tolower(str1[i]) - tolower(str2[i]);
 }
 
+qword strihsh(const String src) {
+    String p = (String) src;
+    qword hash = 14695981039346656037llu;
+
+    while(*p != 0) {
+        hash ^= tolower(*p++);
+        hash *= 1099511628211llu;
+    }
+
+    return hash;
+}
 
 char toupper(char c) {
     if(c >= 'a' && c <= 'z') return c - ('a' - 'A');
@@ -148,6 +159,19 @@ int wcsicmp(const wString str1, const wString str2) {
     }
 
     return towlower(str1[i]) - towlower(str2[i]);
+}
+
+qword wcsihsh(const wString src) {
+    wString p = (wString) src;
+    qword hash = 14695981039346656037llu;
+
+    while(*p != 0) {
+        wchar l = towlower(*p++);
+        hash ^= l & 0xFF; hash *= 1099511628211llu;
+        hash ^= l >> 8; hash *= 1099511628211llu;
+    }
+
+    return hash;
 }
 
 

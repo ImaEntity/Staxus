@@ -3,8 +3,8 @@
 
 #include <memory/utils.h>
 
-static InteruptTablePointer descriptor;
-static InteruptTableEntry entries[256];
+static InterruptTablePointer descriptor;
+static InterruptTableEntry entries[256];
 
 void initalizeIDT() {
     descriptor.size = sizeof(entries) - 1;
@@ -13,7 +13,7 @@ void initalizeIDT() {
     memset(entries, 0, sizeof(entries));
 }
 
-void setIDTEntry(byte index, void *offset, word sel, byte flags) {
+void setIDTEntry(byte index, void (*offset)(byte), word sel, byte flags) {
     qword addr = (qword) offset;
 
     entries[index].lOff =  addr        & 0xFFFF;

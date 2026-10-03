@@ -5,16 +5,16 @@
 #include "isr.h"
 #include "irq.h"
 
-void InitializeInterrupts() {
+boolean InitializeInterrupts() {
     initalizeIDT();
     initalizeISRs();
-    initalizeIRQs();
-}
-
-void FinalizeInterrupts() {
+    if(!initalizeIRQs()) return false;
+    
     loadIDT();
+    asm volatile("sti");
+    return true;
 }
 
-void RegisterIRQ(byte irqNum, void (*handler)()) {
-    installIRQ(irqNum, (void *) handler);
+void RegisterIRQ(byte irqNum, void (*handler)(Registers *r)) {
+    installIRQ(irqNum, handler);
 }

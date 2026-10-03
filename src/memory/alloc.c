@@ -4,7 +4,7 @@
 #include <video/print.h>
 
 static MemoryManager gManager = {0};
-boolean LoadMemoryManager(MemoryManager manager, MemoryMap *map, void *kernel_entry) {
+boolean LoadMemoryManager(MemoryManager manager, MemoryMap *map, void (*kernel_entry)()) {
     if(gManager.cleanup != NULL)
         gManager.cleanup();
 
@@ -43,7 +43,7 @@ u64 GetAvailableMemory() {
     return gManager.get_available();
 }
 
-u64 GetUsableMemory() {
-    if(gManager.get_usable == NULL) return -1;
-    return gManager.get_usable();
+u64 GetUseableMemory() {
+    if(gManager.get_useable == NULL) return -1;
+    return gManager.get_useable();
 }

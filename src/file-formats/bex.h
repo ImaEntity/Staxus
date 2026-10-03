@@ -1,5 +1,5 @@
-#ifndef HH_BEX
-#define HH_BEX
+#ifndef HH_FORMAT_BEX
+#define HH_FORMAT_BEX
 
 #include <types.h>
 

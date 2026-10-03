@@ -13,6 +13,7 @@
 #define EntryOffset(entry) ((entry & 0xFFFFFFFF) * ENTRY_SIZE)
 
 #define ENDOFCHAIN (0x0FFFFFF8)
+#define BAD_CLUSTER (0x0FFFFFF7)
 #define ATTRIBUTE_DIRECTORY 0x10
 #define ATTRIBUTE_LONG_FILE_NAME 0x0F
 
@@ -80,6 +81,7 @@ void *mountFAT32FileSystem(BlockDevice *device, const String path) {
     mount -> bytesPerCluster = buf[13] * device -> sectorSize;
     mount -> sectorsPerCluster = buf[13];
 
+    free(buf);
     return mount;
 }
 
@@ -254,11 +256,15 @@ FAT32Entry *parseFAT32Entry(byte *entry, char *lfnBuf, boolean *lfn) {
     res -> cluster = dataCluster;
     res -> attr    = entry[11];
 
+    boolean nlow = (entry[12] & 0x08) != 0;
+    boolean elow = (entry[12] & 0x10) != 0;
+
     if(!*lfn) { // disgusting syntax
         char name[13];
 
-        for(int i = 0; i < 8; i++) name[i] = entry[i];
         name[8] = 0;
+        for(int i = 0; i < 8; i++)
+            name[i] = nlow ? tolower(entry[i]) : entry[i];
 
         for(int i = 7; i >= 0; i--) {
             if(name[i] != ' ') break;
@@ -268,8 +274,9 @@ FAT32Entry *parseFAT32Entry(byte *entry, char *lfnBuf, boolean *lfn) {
         u8 fnLen = strlen(name);
         name[fnLen] = '.';
 
-        for(int i = 0; i < 3; i++) name[fnLen + 1 + i] = entry[8 + i];
         name[fnLen + 4] = 0;
+        for(int i = 0; i < 3; i++)
+            name[fnLen + 1 + i] = elow ? tolower(entry[8 + i]) : entry[8 + i];
 
         for(int i = 2; i >= 0; i--) {
             if(name[fnLen + 1 + i] != ' ') break;
@@ -705,7 +712,7 @@ FAT32Entry *findFAT32Entry(FAT32Mount *mount, const String path, u32 startCluste
         FAT32Entry *root = malloc(sizeof(FAT32Entry));
         if(root == NULL) return NULL;
 
-        root -> parentCluster = 0x00000001;
+        root -> parentCluster = BAD_CLUSTER;
         root -> parentEntryIdx = 0;
     
         root -> cluster = startCluster;
@@ -822,22 +829,14 @@ FAT32Entry *createFAT32Entry(FAT32Mount *mount, const String path, FAT32EntryInf
     }
 
     strcpy(newEntry -> name, fname);
-
-    byte *buf = aalloc(mount -> bytesPerCluster, 128);
-    if(buf == NULL) {
+    if(!writeFAT32Entry(mount, newEntry, false)) {
         free(dir);
         destroyFAT32Entry(dirEntry);
         destroyFAT32Entry(newEntry);
         return NULL;
     }
 
-    if(!writeFAT32Entry(mount, newEntry, false)) {
-        free(buf); free(dir);
-        destroyFAT32Entry(dirEntry);
-        destroyFAT32Entry(newEntry);
-        return NULL;
-    }
-
+    destroyFAT32Entry(dirEntry);
     return newEntry;
 }
 
@@ -935,7 +934,7 @@ u64 readFAT32File(FILE *file, void *buffer, u64 offset, u64 length) {
             mount -> bytesPerCluster - byteOffset :
             bytesLeft;
 
-        memcpy(buffer + totalBytesRead, buf + byteOffset, toRead);
+        memcpy((byte *) buffer + totalBytesRead, buf + byteOffset, toRead);
 
         bytesLeft -= toRead;
         totalBytesRead += toRead;
@@ -988,7 +987,7 @@ u64 writeFAT32File(FILE *file, void *buffer, u64 offset, u64 length) {
             mount -> bytesPerCluster - byteOffset :
             bytesLeft;
 
-        memcpy(buf + byteOffset, buffer + totalBytesWritten, toWrite);
+        memcpy(buf + byteOffset, (byte *) buffer + totalBytesWritten, toWrite);
         if(!writeCluster(mount, buf, currentCluster)) {
             free(buf);
             return totalBytesWritten;
@@ -1026,7 +1025,7 @@ boolean deleteFAT32Entry(FSMount *mount, const String path) {
     FAT32Entry *entry = findFAT32Entry(fatMount, path, fatMount -> rootCluster);
     if(entry == NULL) return false;
 
-    entry -> name[0] = 0xE5;
+    entry -> name[0] = (char) 0xE5;
     if(!writeFAT32Entry(fatMount, entry, true)) {
         destroyFAT32Entry(entry);
         return false;
@@ -1065,7 +1064,7 @@ boolean moveFAT32Entry(FSMount *mount, const String oldPath, const String newPat
         return false;
     }
 
-    entry -> name[0] = 0xE5;
+    entry -> name[0] = (char) 0xE5;
     if(!writeFAT32Entry(fatMount, entry, true)) {
         destroyFAT32Entry(newEntry);
         destroyFAT32Entry(entry);

@@ -5,6 +5,7 @@
 #include <memory/alloc.h>
 #include <memory/utils.h>
 #include <video/print.h>
+#include <storage/block.h>
 
 #define AHCI_SIG_NULL    0x00000000
 #define AHCI_SIG_SATA    0x00000101
@@ -33,6 +34,14 @@
 
 #define ATA_DEV_BUSY 0x80
 #define ATA_DEV_DRQ  0x08
+
+#define AHCI_DRIVE_SATAPI 0x01
+#define AHCI_DRIVE_LBA48  0x02
+
+typedef struct {
+    HBA_PORT *port;
+    byte flags;
+} AHCIDrive;
 
 typedef volatile struct {
     dword dba;
@@ -65,7 +74,7 @@ typedef volatile struct {
     byte           cfis[64]; // command FIS
     byte           acmd[16]; // ATAPI cmd (if used)
     byte           rsv[48];  // reserved
-    HBA_PRDT_ENTRY prdt[0];  // PRDT entries follow
+    HBA_PRDT_ENTRY prdt[];   // PRDT entries follow
 } HBA_CMD_TBL;
 
 typedef volatile struct {
@@ -194,14 +203,6 @@ boolean sendPortCommand(
     return (is & 0x40000000) == 0;
 }
 
-#define AHCI_DRIVE_SATAPI  0b00000001
-#define AHCI_DRIVE_LBA48   0b00000010
-
-typedef struct {
-    HBA_PORT *port;
-    byte flags;
-} AHCIDrive;
-
 boolean readAHCIDrive(BlockDevice *device, void *buf, u64 lba, u64 count) {
     AHCIDrive *drive = (AHCIDrive *) device -> internal;
 
@@ -222,10 +223,8 @@ boolean writeAHCIDrive(BlockDevice *device, void *buf, u64 lba, u64 count) {
     return sendPortCommand(drive -> port, cmd, lba, count, buf);
 }
 
-void InitializeAHCIController(AHCIController *controller) {
+u8 InitializeAHCIController(AHCIController *controller) {
     HBA_MEM *hba = (HBA_MEM *) controller -> baseAddrReg;
-
-    printf("Initalizing AHCI controller\n");
 
     u8 count = 0;
     for(int i = 0; i < 32; i++) {
@@ -325,5 +324,5 @@ void InitializeAHCIController(AHCIController *controller) {
         free(identify_buf);
     }
 
-    printf("Registered %d AHCI block devices\n", count);
+    return count;
 }

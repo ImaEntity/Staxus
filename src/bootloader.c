@@ -27,29 +27,26 @@ FrameBuffer *EFIAPI InitializeGOP() {
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
     if(SysTbl -> BootServices -> LocateProtocol(&gEfiGraphicsOutputProtocolGuid, NULL, (void **) &gop) != EFI_SUCCESS)
         return NULL;
-
+  
     UINTN infoSize;
-    UINTN modeCount;
-    UINTN nativeMode;
-
     EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info;
     if(gop -> QueryMode(gop, gop -> Mode -> Mode, &infoSize, &info) != EFI_SUCCESS)
         return NULL;
     
-    nativeMode = gop -> Mode -> Mode;
-    modeCount = gop -> Mode -> MaxMode;
-
-    for(int i = 0; i < modeCount; i++) {
+    UINTN nativeMode = gop -> Mode -> Mode;
+    UINTN pxCount = info -> HorizontalResolution * info -> VerticalResolution;
+    for(int i = 0; i < gop -> Mode -> MaxMode; i++) {
         if(gop -> QueryMode(gop, i, &infoSize, &info) != EFI_SUCCESS)
             continue;
 
-        if(info -> HorizontalResolution == 1280 && info -> VerticalResolution == 720) {
-            nativeMode = i;
-            break;
-        }
-    }
+        // qemu exposing a 2048x2048 display for no reason
+        if(info -> HorizontalResolution != 1280) continue;
+        if(info -> VerticalResolution != 720) continue;
 
-    nativeMode = nativeMode;
+        if(info -> HorizontalResolution * info -> VerticalResolution < pxCount) continue;
+        pxCount = info -> HorizontalResolution * info -> VerticalResolution;
+        nativeMode = i;
+    }
 
     if(gop -> SetMode(gop, nativeMode) != EFI_SUCCESS)
         return NULL;
@@ -258,7 +255,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".");
 
-    EFI_PHYSICAL_ADDRESS kernelBase = 0x100000;
+    EFI_PHYSICAL_ADDRESS kernelBase = 0x100000 + 0x1000; // evil hack because rva of .text is 0x1000
     u64 fileSize = GetFileSize(file);
     u64 pages = (fileSize + 0xFFF) >> 12;
     if(SysTbl -> BootServices -> AllocatePages(AllocateAddress, EfiLoaderData, pages, (void *) &kernelBase) != EFI_SUCCESS)
@@ -274,7 +271,8 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L".\r\nKernel loaded!\r\n");
     SysTbl -> ConOut -> OutputString(SysTbl -> ConOut, L"Wait hold on, last minute fetch quest.");
 
-    void (*kernel_entry)(FrameBuffer *, PSFFont *, MemoryMap *, BootDeviceInfo *) = (void *) kernelBase;
+    void (*kernel_entry)(FrameBuffer *, PSFFont *, MemoryMap *, BootDeviceInfo *) =
+        (void (*)(FrameBuffer *, PSFFont *, MemoryMap *, BootDeviceInfo *)) kernelBase;
 
     FrameBuffer *fb = InitializeGOP();
     if(fb == NULL) return ExitWithError(ERROR_PROTOCOL_MISSING);

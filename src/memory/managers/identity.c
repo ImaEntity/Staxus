@@ -6,8 +6,8 @@
 
 #define MIN_ADDR (4 * 1024 * 1024)
 
-#define MEM_IN_USE  0b00000001
-#define MEM_ALIGNED 0b00000010
+#define MEM_IN_USE  0x01
+#define MEM_ALIGNED 0x02
 
 #define MemInUse(blk) ((blk -> flags & MEM_IN_USE) != 0)
 
@@ -20,13 +20,13 @@ struct _BlockHeader {
 };
 
 static BlockHeader *firstBlock = NULL;
-static u64 totalUsable = 0;
-void idalloc_init(MemoryMap *memory, void *kernel_entry) {
+static u64 totalUseable = 0;
+void idalloc_init(MemoryMap *memory, void (*kernel_entry)()) {
     u64 blockCount = 0;
     BlockHeader *lastBlock = NULL;
 
     firstBlock = NULL;
-    totalUsable = 0;
+    totalUseable = 0;
 
     for(u64 i = 0; i < memory -> mapSize / memory -> descriptorSize; i++) {
         byte *blocks = (byte *) memory -> map;
@@ -42,7 +42,7 @@ void idalloc_init(MemoryMap *memory, void *kernel_entry) {
         BlockHeader *header = (BlockHeader *) (block.physAddr);
 
         header -> size = block.numPages * 4096;
-        totalUsable += header -> size;
+        totalUseable += header -> size;
 
         header -> next = NULL;
         header -> flags = 0;
@@ -222,7 +222,7 @@ void idalloc_free(void *ptr) {
     }
 }
 
-u64 idalloc_get_usable() { return totalUsable; }
+u64 idalloc_get_useable() { return totalUseable; }
 u64 idalloc_get_available() {
     BlockHeader *current = firstBlock;
     u64 used = 0;
@@ -246,7 +246,7 @@ const MemoryManager mmanager_get_identity() {
         .free    = idalloc_free,
         .cleanup = NULL,
 
-        .get_usable   = idalloc_get_usable,
+        .get_useable   = idalloc_get_useable,
         .get_available = idalloc_get_available
     };
 }

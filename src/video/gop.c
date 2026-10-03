@@ -90,7 +90,7 @@ void DrawLine(FrameBuffer *fb, u32 x0, u32 y0, u32 x1, u32 y1, u32 color) {
 
 void DrawChar(FrameBuffer *fb, PSFFont *font, wchar chr, u32 x, u32 y, u32 color) {
     word glyphIdx = font -> unicodeTable[chr];
-    byte *glyph = font->glyphBuffer + glyphIdx * font->header->charSize;
+    byte *glyph = font -> glyphBuffer + glyphIdx * font -> header -> charSize;
 
     for(u32 i = 0; i < font -> header -> charSize; i++) { // this assumes 1 row = 1 byte
         for(u32 j = 0; j < 8; j++) {

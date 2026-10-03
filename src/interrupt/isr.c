@@ -1,71 +1,130 @@
+#include "isr.h"
 #include <types.h>
-#include "interrupt.h"
 
 #include "idt.h"
+#include "interrupt.h"
+#include <io/serial.h>
 #include <video/gop.h>
+#include <video/print.h>
 #include <string/utils.h>
 
 #define ISR_COUNT 48
 
-static void (*handlers[ISR_COUNT])(byte idtIdx) = {0};
-void handleISR() {
-    register byte idtIdx asm("rdi");
-    if(handlers[idtIdx] != NULL) handlers[idtIdx](idtIdx);
+static void (*handlers[ISR_COUNT])(Registers *r, byte idtIdx) = {0};
+void handleISR(Registers *r, byte idtIdx) {
+    if(handlers[idtIdx] != NULL)
+        handlers[idtIdx](r, idtIdx);
 }
 
-#define ISR(n) void isr_##n(byte idtIdx); asm(".intel_syntax noprefix\n" \
-    ".global isr_" #n "       \n"                                        \
-    "isr_" #n ":              \n"                                        \
-    "    cli                  \n"                                        \
-    "                         \n"                                        \
-    "    push rax             \n"                                        \
-    "    push rcx             \n"                                        \
-    "    push rdx             \n"                                        \
-    "    push rbx             \n"                                        \
-    "    push rbp             \n"                                        \
-    "    push rsi             \n"                                        \
-    "    push rdi             \n"                                        \
-    "    push r8              \n"                                        \
-    "    push r9              \n"                                        \
-    "    push r10             \n"                                        \
-    "    push r11             \n"                                        \
-    "    push r12             \n"                                        \
-    "    push r13             \n"                                        \
-    "    push r14             \n"                                        \
-    "    push r15             \n"                                        \
-    "                         \n"                                        \
-    "    mov rdi, " #n "      \n"                                        \
-    "    sub rsp, 8           \n"                                        \
-    "    call handleISR       \n"                                        \
-    "    add rsp, 8           \n"                                        \
-    "                         \n"                                        \
-    "    pop r15              \n"                                        \
-    "    pop r14              \n"                                        \
-    "    pop r13              \n"                                        \
-    "    pop r12              \n"                                        \
-    "    pop r11              \n"                                        \
-    "    pop r10              \n"                                        \
-    "    pop  r9              \n"                                        \
-    "    pop  r8              \n"                                        \
-    "    pop rdi              \n"                                        \
-    "    pop rsi              \n"                                        \
-    "    pop rbp              \n"                                        \
-    "    pop rbx              \n"                                        \
-    "    pop rdx              \n"                                        \
-    "    pop rcx              \n"                                        \
-    "    pop rax              \n"                                        \
-    "                         \n"                                        \
-    "    iretq                \n"                                        \
-    ".att_syntax noprefix\n");
+#define ISR(n)                     \
+    void isr_##n(byte idtIdx);     \
+    asm(".intel_syntax noprefix\n" \
+    ".global isr_" #n "        \n" \
+    "isr_" #n ":               \n" \
+    "    push 0                \n" \
+    "    push rax              \n" \
+    "    push rbx              \n" \
+    "    push rcx              \n" \
+    "    push rdx              \n" \
+    "    push rsi              \n" \
+    "    push rdi              \n" \
+    "    push rbp              \n" \
+    "    push r8               \n" \
+    "    push r9               \n" \
+    "    push r10              \n" \
+    "    push r11              \n" \
+    "    push r12              \n" \
+    "    push r13              \n" \
+    "    push r14              \n" \
+    "    push r15              \n" \
+    "                          \n" \
+    "    mov rbp, rsp          \n" \
+    "    and rsp, -16          \n" \
+    "    sub rsp, 32           \n" \
+    "                          \n" \
+    "    mov rcx, rbp          \n" \
+    "    mov rdx, " #n "       \n" \
+    "    call handleISR        \n" \
+    "                          \n" \
+    "    mov rsp, rbp          \n" \
+    "                          \n" \
+    "    pop r15               \n" \
+    "    pop r14               \n" \
+    "    pop r13               \n" \
+    "    pop r12               \n" \
+    "    pop r11               \n" \
+    "    pop r10               \n" \
+    "    pop r9                \n" \
+    "    pop r8                \n" \
+    "    pop rbp               \n" \
+    "    pop rdi               \n" \
+    "    pop rsi               \n" \
+    "    pop rdx               \n" \
+    "    pop rcx               \n" \
+    "    pop rbx               \n" \
+    "    pop rax               \n" \
+    "    add rsp, 8            \n" \
+    "    iretq                 \n" \
+    ".att_syntax noprefix");
 
-ISR(0)  ISR(1)  ISR(2)  ISR(3)
-ISR(4)  ISR(5)  ISR(6)  ISR(7)
-ISR(8)  ISR(9)  ISR(10) ISR(11)
-ISR(12) ISR(13) ISR(14) ISR(15)
-ISR(16) ISR(17) ISR(18) ISR(19)
-ISR(20) ISR(21) ISR(22) ISR(23)
-ISR(24) ISR(25) ISR(26) ISR(27)
-ISR(28) ISR(29) ISR(30) ISR(31)
+#define ISR_ERR(n)                 \
+    void isr_##n(byte idtIdx);     \
+    asm(".intel_syntax noprefix\n" \
+    ".global isr_" #n "        \n" \
+    "isr_" #n ":               \n" \
+    "    push rax              \n" \
+    "    push rbx              \n" \
+    "    push rcx              \n" \
+    "    push rdx              \n" \
+    "    push rsi              \n" \
+    "    push rdi              \n" \
+    "    push rbp              \n" \
+    "    push r8               \n" \
+    "    push r9               \n" \
+    "    push r10              \n" \
+    "    push r11              \n" \
+    "    push r12              \n" \
+    "    push r13              \n" \
+    "    push r14              \n" \
+    "    push r15              \n" \
+    "                          \n" \
+    "    mov rbp, rsp          \n" \
+    "    and rsp, -16          \n" \
+    "    sub rsp, 32           \n" \
+    "                          \n" \
+    "    mov rcx, rbp          \n" \
+    "    mov rdx, " #n "       \n" \
+    "    call handleISR        \n" \
+    "                          \n" \
+    "    mov rsp, rbp          \n" \
+    "                          \n" \
+    "    pop r15               \n" \
+    "    pop r14               \n" \
+    "    pop r13               \n" \
+    "    pop r12               \n" \
+    "    pop r11               \n" \
+    "    pop r10               \n" \
+    "    pop r9                \n" \
+    "    pop r8                \n" \
+    "    pop rbp               \n" \
+    "    pop rdi               \n" \
+    "    pop rsi               \n" \
+    "    pop rdx               \n" \
+    "    pop rcx               \n" \
+    "    pop rbx               \n" \
+    "    pop rax               \n" \
+    "    add rsp, 8            \n" \
+    "    iretq                 \n" \
+    ".att_syntax noprefix");
+
+ISR(0)      ISR(1)      ISR(2)      ISR(3)
+ISR(4)      ISR(5)      ISR(6)      ISR(7)
+ISR_ERR(8)  ISR(9)      ISR_ERR(10) ISR_ERR(11)
+ISR_ERR(12) ISR_ERR(13) ISR_ERR(14) ISR(15)
+ISR(16)     ISR_ERR(17) ISR(18)     ISR(19)
+ISR(20)     ISR(21)     ISR(22)     ISR(23)
+ISR(24)     ISR(25)     ISR(26)     ISR(27)
+ISR(28)     ISR(29)     ISR(30)     ISR(31)
 
 // IRQs
 ISR(32) ISR(33) ISR(34) ISR(35)
@@ -85,7 +144,7 @@ static void (*stubs[ISR_COUNT])(byte idtIdx) = {
 static const wString exceptions[32] = {
     L"Divide by zero",
     L"Debug",
-    L"Non maskable interupt",
+    L"Non maskable interrupt",
     L"Breakpoint",
     L"Overflow",
     L"Out of bounds",
@@ -120,11 +179,13 @@ static const wString exceptions[32] = {
 FrameBuffer *getFrameBuffer();
 PSFFont *getDefaultFont();
 
-void exceptionStub(byte idtIdx) {
+void exceptionStub(Registers *r, byte idtIdx) {
     wString errMessage = exceptions[idtIdx];
     FrameBuffer *frame = getFrameBuffer();
-    PSFFont *font = getDefaultFont();
-    
+
+    PSFFont *font = LoadFont("/resources/fonts/D8x16-ext.psf");
+    if(font == NULL) font = getDefaultFont();
+
     DrawString(
         frame, font,
         errMessage,
@@ -132,9 +193,29 @@ void exceptionStub(byte idtIdx) {
         frame -> Height / 2 - font -> header -> charSize / 2,
         0xFF0000
     );
+
+    if(SerialActive()) {
+        SerialPrintf("\n=== EXCEPTION OCCURRED ===\n");
+        SerialPrintf("RAX = %p  RBX = %p  RCX = %p  RDX = %p\n", r -> rax, r -> rbx, r -> rcx, r -> rdx);
+        SerialPrintf("RSI = %p  RDI = %p  RBP = %p  RSP = %p\n", r -> rsi, r -> rdi, r -> rbp, r -> rsp);
+        SerialPrintf("R8  = %p  R9  = %p  R10 = %p  R11 = %p\n", r -> r8,  r -> r9,  r -> r10, r -> r11);
+        SerialPrintf("R12 = %p  R13 = %p  R14 = %p  R15 = %p\n", r -> r12, r -> r13, r -> r14, r -> r15);
+        SerialPrintf("RIP = %p  CS  = %p  SS  = %p\n",           r -> rip, r -> cs, r -> ss);
+        SerialPrintf("ERR = %X  FLG = %X\n",                     r -> errorCode, r -> rflags);
+    } else {
+        printf("\n=== EXCEPTION OCCURRED ===\n");
+        printf("RAX = %p  RBX = %p  RCX = %p  RDX = %p\n", r -> rax, r -> rbx, r -> rcx, r -> rdx);
+        printf("RSI = %p  RDI = %p  RBP = %p  RSP = %p\n", r -> rsi, r -> rdi, r -> rbp, r -> rsp);
+        printf("R8  = %p  R9  = %p  R10 = %p  R11 = %p\n", r -> r8,  r -> r9,  r -> r10, r -> r11);
+        printf("R12 = %p  R13 = %p  R14 = %p  R15 = %p\n", r -> r12, r -> r13, r -> r14, r -> r15);
+        printf("RIP = %p  CS  = %p  SS  = %p\n",           r -> rip, r -> cs, r -> ss);
+        printf("ERR = %X  FLG = %X\n",                     r -> errorCode, r -> rflags);
+    }
+
+    while(1);
 }
 
-void installISR(byte idtIdx, void (*handler)(byte idtIdx)) {
+void installISR(byte idtIdx, void (*handler)(Registers *r, byte idtIdx)) {
     handlers[idtIdx] = handler;
 }
 
@@ -142,9 +223,9 @@ void initalizeISRs() {
     for(byte i = 0; i < ISR_COUNT; i++)
         setIDTEntry(i, stubs[i], 0x0008, 0x8E);
 
-    setIDTEntry(1, stubs[1], 0x0008, 0x8F);
-    setIDTEntry(3, stubs[3], 0x0008, 0x8F);
-    setIDTEntry(4, stubs[4], 0x0008, 0x8F);
+    // setIDTEntry(1, stubs[1], 0x0008, 0x8F);
+    // setIDTEntry(3, stubs[3], 0x0008, 0x8F);
+    // setIDTEntry(4, stubs[4], 0x0008, 0x8F);
 
     for(byte i = 0; i < 32; i++)
         installISR(i, exceptionStub);

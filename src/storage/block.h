@@ -5,7 +5,7 @@
 
 #define MAX_BLOCK_DEVICES 256
 
-#define BLOCK_DEVICE_FLAG_PHYSICAL 0b00000001
+#define BLOCK_DEVICE_FLAG_PHYSICAL 0x01
 
 typedef struct _BlockDevice BlockDevice;
 struct _BlockDevice {
