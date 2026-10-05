@@ -64,11 +64,10 @@ u64 FloatToString(f64 num, wString str, byte radix, byte precision) {
         str[i - j - 1] = temp;
     }
 
-    if(precision > 0 && fractional != 0) {
+    if(precision > 0) {
         str[i++] = '.';
 
         for(byte j = 0; j < precision; j++) {
-            if(fractional == 0) break;
             fractional *= radix;
 
             byte digit = fractional;

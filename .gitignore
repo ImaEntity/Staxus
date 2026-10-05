@@ -1,4 +1,4 @@
 .vscode
 bin
 tmp
-run.bat
+src/gnu-efi/

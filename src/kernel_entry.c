@@ -164,17 +164,20 @@ void kernelMain(
     toHumanReadable(tmp, GetUseableMemory() - GetAvailableMemory());
     dbg("Using %s of memory after initalizing core systems\n", tmp);
 
-    // asm volatile("int $0x2c");
+    asm volatile("int $0x2c");
 
     while(1);
 }
 
 void toHumanReadable(String result, u64 bytes) {
-    String suffixs[] = {"B", "KB", "MB", "GB", "TB"};
     u64 suffixIndex = 0;
+    String suffixs[] = {
+        "B", "KB", "MB", "GB",
+        "TB", "PB", "EB", "ZB"
+    };
 
     double b = (double) bytes;
-    while(b >= 1024 && suffixIndex < 5) {
+    while(b >= 1024 && suffixIndex < 7) {
         b /= 1024;
         suffixIndex++;
     }

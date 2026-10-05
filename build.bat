@@ -81,8 +81,8 @@ x86_64-w64-mingw32-gcc -m64 %opt% -s -nodefaultlibs -nostartfiles -nostdlib -Wl,
 x86_64-w64-mingw32-gcc -m64 %opt% -s -nodefaultlibs -nostartfiles -nostdlib -Wl,-r -o tmp/io.o           tmp/io_keyboard.o tmp/io_serial.o tmp/io_mouse.o
 
 :: Compile pe test files
-gcc -s %opt% %errs% -fno-builtin -nostartfiles -nostdlib -shared -Wl,--entry=0 -o resources/test_dll.dll tmp/video.o tmp/string.o tmp/memory.o tmp/math.o
-gcc -s %opt% %errs% -fno-builtin -nostartfiles -nostdlib -L./resources -ltest_dll -o resources/test_pe.exe resources/main.c
+x86_64-w64-mingw32-gcc -m64 -s %opt% %errs% -fno-builtin -nostartfiles -nostdlib -shared -Wl,--entry=0 -o resources/test_dll.dll tmp/video.o tmp/string.o tmp/memory.o tmp/math.o
+x86_64-w64-mingw32-gcc -m64 -s %opt% %errs% -fno-builtin -nostartfiles -nostdlib -L./resources -ltest_dll -o resources/test_pe.exe resources/main.c
 
 :: Compile and link the bootloader, then shove the efi file into the disk image
 x86_64-w64-mingw32-gcc -m64 %opt% -s %errs% -ffreestanding -c -Isrc -o tmp/bootloader.o src/bootloader.c
@@ -90,8 +90,6 @@ x86_64-w64-mingw32-gcc -m64 %opt% -s %errs% -ffreestanding -c -Isrc -Isrc/gnu-ef
 x86_64-w64-mingw32-gcc -m64 %opt% -s -nodefaultlibs -nostartfiles -nostdlib -Wl,-dll -shared -Wl,--subsystem,10 -e efi_main -o Z:/EFI/BOOT/BOOTX64.EFI tmp/math.o tmp/string.o tmp/fileformat_psf_efi.o tmp/bootloader.o tmp/efi_data.o
 
 :: Compile and link the kernel, then shove it into the disk image
-x86_64-w64-mingw32-gcc -m64 %opt% -s %errs% -ffreestanding -masm=intel -S -Isrc -o bin/krnltmp.S src/kernel_entry.c
-
 x86_64-w64-mingw32-gcc -m64 %opt% -s %errs% -ffreestanding -c -Isrc -o tmp/krnltmp.o src/kernel_entry.c
 x86_64-w64-mingw32-gcc -m64 %opt% -s -nostdlib -nodefaultlibs -nostartfiles -Wl,-e,kernel_entry -Wl,--image-base,0x100000 -o tmp/stxkrnl.exe tmp/krnltmp.o tmp/interrupt.o tmp/math.o tmp/io.o tmp/bus.o tmp/partition.o tmp/fileformat.o tmp/filesystem.o tmp/storage.o tmp/memory.o tmp/string.o tmp/video.o
 objcopy -O binary tmp/stxkrnl.exe Z:/stxkrnl.bin

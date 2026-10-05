@@ -195,7 +195,7 @@ void exceptionStub(Registers *r, byte idtIdx) {
     );
 
     if(SerialActive()) {
-        SerialPrintf("\n=== EXCEPTION OCCURRED ===\n");
+        SerialPrintf("\n=== EXCEPTION OCCURRED - %ls ===\n", errMessage);
         SerialPrintf("RAX = %p  RBX = %p  RCX = %p  RDX = %p\n", r -> rax, r -> rbx, r -> rcx, r -> rdx);
         SerialPrintf("RSI = %p  RDI = %p  RBP = %p  RSP = %p\n", r -> rsi, r -> rdi, r -> rbp, r -> rsp);
         SerialPrintf("R8  = %p  R9  = %p  R10 = %p  R11 = %p\n", r -> r8,  r -> r9,  r -> r10, r -> r11);
@@ -203,7 +203,7 @@ void exceptionStub(Registers *r, byte idtIdx) {
         SerialPrintf("RIP = %p  CS  = %p  SS  = %p\n",           r -> rip, r -> cs, r -> ss);
         SerialPrintf("ERR = %X  FLG = %X\n",                     r -> errorCode, r -> rflags);
     } else {
-        printf("\n=== EXCEPTION OCCURRED ===\n");
+        printf("\n=== EXCEPTION OCCURRED - %ls ===\n", errMessage);
         printf("RAX = %p  RBX = %p  RCX = %p  RDX = %p\n", r -> rax, r -> rbx, r -> rcx, r -> rdx);
         printf("RSI = %p  RDI = %p  RBP = %p  RSP = %p\n", r -> rsi, r -> rdi, r -> rbp, r -> rsp);
         printf("R8  = %p  R9  = %p  R10 = %p  R11 = %p\n", r -> r8,  r -> r9,  r -> r10, r -> r11);
